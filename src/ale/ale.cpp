@@ -465,9 +465,9 @@ void runTransferHighwayInference(const AleArguments &args,
   } else {
     auto &evaluator = speciesTreeOptimizer.getEvaluator();
 
-    for (unsigned int i = 0; i < candidateHighways.size(); ++i) {
-      ScoredHighway sh(candidateHighways[i]);
-      sh.highway.proba = candidateHighways[i].highway.proba;
+    for (unsigned int i = 0; i < filteredHighways.size(); ++i) {
+      ScoredHighway sh(filteredHighways[i]);
+      sh.highway.proba = filteredHighways[i].highway.proba;
       acceptedHighways.push_back(sh);
       evaluator.addHighway(sh.highway);
     }
