@@ -164,7 +164,7 @@ void Highways::getCandidateHighways(AleOptimizer &optimizer,
       distance += 1;
       regraft = regraft->parent;
     }
-    if (distance >= 5) {
+    if (distance >= 5 && prune->left != nullptr) {
       scoredHighways.push_back(ScoredHighway(highway, 0.0));
     } else {
       Logger::timed << "Rejecting (dist) candidate: " << highway.src->label
@@ -209,7 +209,7 @@ Highways::getSortedCandidatesFromList(AleOptimizer &optimizer,
 
 void Highways::filterCandidateHighwaysFast(
     AleOptimizer &optimizer, const std::vector<ScoredHighway> &highways,
-    std::vector<ScoredHighway> &filteredHighways, size_t sample_size) {
+    std::vector<ScoredHighway> &filteredHighways, size_t sample_size, bool individual_test) {
   auto &evaluator = optimizer.getEvaluator();
   auto &speciesTree = optimizer.getSpeciesTree();
   Logger::timed << "Filering " << highways.size() << " candidate highways"
@@ -244,13 +244,17 @@ void Highways::filterCandidateHighwaysFast(
     if (llDiff > 0.01) {
       auto parameters = optimizeSingleHighway(evaluator, highway, proba);
       auto llDiff = parameters.getScore() - initialLL;
-      if (2 * llDiff > log(sample_size)) {
+      if (individual_test || (2 * llDiff > log(sample_size))) {
         evaluator.addHighway(highway);
         initialLL = parameters.getScore();
         Logger::timed << "Accepting candidate: ";
         highway.proba = parameters[0];
         filteredHighways.push_back(ScoredHighway(highway, -llDiff));
-        evaluator.saveSnapshotPerFamilyLL();
+        if (individual_test) {
+          evaluator.removeHighway();
+        } else {
+          evaluator.saveSnapshotPerFamilyLL();
+        }
       } else {
         Logger::timed << "Rejecting (BIC) candidate: ";
       }
@@ -261,9 +265,11 @@ void Highways::filterCandidateHighwaysFast(
                  << " ll diff = " << llDiff << " best proba = " << highway.proba
                  << std::endl;
   }
-  for (auto &highway : filteredHighways) {
-    (void)(highway);
-    evaluator.removeHighway();
+  if (!individual_test) {
+    for (auto &highway : filteredHighways) {
+      (void)(highway);
+      evaluator.removeHighway();
+    }
   }
   std::sort(filteredHighways.begin(), filteredHighways.end());
 }

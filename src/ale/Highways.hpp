@@ -22,7 +22,7 @@ public:
    */
   static void filterCandidateHighwaysFast(
       AleOptimizer &optimizer, const std::vector<ScoredHighway> &highways,
-      std::vector<ScoredHighway> &filteredHighways, size_t sample_size);
+      std::vector<ScoredHighway> &filteredHighways, size_t sample_size, bool individual_test = false);
 
   static void
   optimizeAllHighways(AleOptimizer &optimizer,
