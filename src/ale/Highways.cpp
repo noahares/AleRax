@@ -276,14 +276,14 @@ void Highways::filterCandidateHighwaysFast(
       auto parameters = optimizeSingleHighway(evaluator, highway, proba);
       auto llDiff = parameters.getScore() - initialLL;
       if (individual_test || (2 * llDiff > log(sample_size))) {
-        evaluator.addHighway(highway);
-        initialLL = parameters.getScore();
         Logger::timed << "Accepting candidate: ";
         highway.proba = parameters[0];
         filteredHighways.push_back(ScoredHighway(highway, -llDiff));
         if (individual_test) {
           evaluator.removeHighway();
         } else {
+          evaluator.addHighway(highway);
+          initialLL = parameters.getScore();
           evaluator.saveSnapshotPerFamilyLL();
         }
       } else {
