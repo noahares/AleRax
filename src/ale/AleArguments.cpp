@@ -20,7 +20,8 @@ AleArguments::AleArguments(int iargc, char *iargv[])
       speciesTreeAlgorithm(SpeciesTreeAlgorithm::User),
       speciesSearchStrategy(SpeciesSearchStrategy::SKIP),
       inferSpeciationOrders(false), fixRates(false), skipThoroughRates(false),
-      recOpt(RecOpt::LBFGSB), highways(false), highwayCandidatesStep1(100),
+      recOpt(RecOpt::LBFGSB), highways(false), individualHighwayTest(false),
+      highwayCandidatesStep1(100),
       highwayCandidatesStep2(50), skipFamilyFiltering(false),
       minCoveredSpecies(DEFAULT_MIN_COVERED_SPECIES),
       trimFamilyRatio(DEFAULT_TRIM_FAMILY_RATIO),
@@ -57,8 +58,12 @@ AleArguments::AleArguments(int iargc, char *iargv[])
       fixRates = true;
     } else if (arg == "--highways") {
       highways = true;
+    } else if (arg == "--highways-individual-test") {
+      individualHighwayTest = true;
     } else if (arg == "--highway-candidate-file") {
       highwayCandidateFile = std::string(argv[++i]);
+    } else if (arg == "--highway-fixed-file") {
+      fixedHighwaysFile = std::string(argv[++i]);
     } else if (arg == "--highway-candidate-step1") {
       highwayCandidatesStep1 = atoi(argv[++i]);
     } else if (arg == "--highway-candidate-step2") {
@@ -341,7 +346,9 @@ void AleArguments::printHelp() {
 
   Logger::info << "Transfer highway options" << std::endl;
   Logger::info << "\t--highways" << std::endl;
+  Logger::info << "\t--highways-individual-test" << std::endl;
   Logger::info << "\t--highway-candidates-file <filepath>" << std::endl;
+  Logger::info << "\t--highway-fixed-file <filepath>" << std::endl;
   Logger::info << "\t--highway-candidates-step1 <value>" << std::endl;
   Logger::info << "\t--highway-candidates-step2 <value>" << std::endl;
 

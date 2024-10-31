@@ -16,6 +16,10 @@ public:
   static std::vector<ScoredHighway>
   getSortedCandidatesFromList(AleOptimizer &optimizer,
                               std::vector<Highway> &highways);
+
+  static void setFixedHighways(AleOptimizer &optimizer,
+                               std::vector<Highway> &highways,
+                               std::vector<ScoredHighway> &fixedHighways);
   /**
    *  Filter the highway candidates by testing them with a small hardcoded
    * probability

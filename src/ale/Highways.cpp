@@ -1,11 +1,14 @@
 #include "Highways.hpp"
+#include "AleOptimizer.hpp"
 
 #include <IO/FileSystem.hpp>
 #include <IO/Logger.hpp>
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <optimizers/DTLOptimizer.hpp>
 #include <search/SpeciesTransferSearch.hpp>
+#include <vector>
 
 // const double MIN_PH = 0.00000001;
 // const double MAX_PH = 0.8;
@@ -177,6 +180,33 @@ void Highways::getCandidateHighways(AleOptimizer &optimizer,
   }
 }
 
+void Highways::setFixedHighways(AleOptimizer &optimizer, std::vector<Highway> &highways, std::vector<ScoredHighway> &fixed_highways) {
+  auto &evaluator = optimizer.getEvaluator();
+  auto &speciesTree = optimizer.getSpeciesTree();
+  double initialLL = evaluator.computeLikelihood();
+  Logger::timed << "initial ll=" << initialLL << std::endl;
+  evaluator.saveSnapshotPerFamilyLL();
+  for (auto &highway : highways) {
+    double proba = 0.01;
+    if (!isHighwayCompatible(highway, optimizer.getRecModelInfo(),
+                             speciesTree.getDatedTree())) {
+      Logger::info << "Incompatible highway " << highway.src->label << "->"
+                   << highway.dest->label << std::endl;
+      continue;
+    }
+      auto parameters = optimizeSingleHighway(evaluator, highway, proba);
+    auto llDiff = parameters.getScore() - initialLL;
+    evaluator.addHighway(highway);
+    initialLL = parameters.getScore();
+    highway.proba = parameters[0];
+    evaluator.saveSnapshotPerFamilyLL();
+    Logger::timed << "Fixed highway: " << highway.src->label << "->"
+                  << highway.dest->label << " added with p = " << highway.proba
+                  << " lldiff = " << llDiff << std::endl;
+    fixed_highways.push_back(ScoredHighway(highway, -llDiff));
+  }
+}
+
 std::vector<ScoredHighway>
 Highways::getSortedCandidatesFromList(AleOptimizer &optimizer,
                                       std::vector<Highway> &candidateHighways) {
@@ -218,6 +248,7 @@ void Highways::filterCandidateHighwaysFast(
   Logger::timed << "initial ll=" << initialLL << std::endl;
   evaluator.saveSnapshotPerFamilyLL();
   for (const auto &scoredHighway : highways) {
+    if (std::find(filteredHighways.begin(), filteredHighways.end(), scoredHighway) != filteredHighways.end()) { continue; }
     double proba = 0.01;
     auto highway = scoredHighway.highway;
     if (!isHighwayCompatible(highway, optimizer.getRecModelInfo(),
@@ -234,7 +265,7 @@ void Highways::filterCandidateHighwaysFast(
     if (llDiff < 0.01) {
       proba = 0.1;
       Logger::timed
-          << "No improvement with small probability! Trying again with p = "
+          << "No improvement with small probability! LlDiff = " << llDiff << " Trying again with p = "
           << proba << std::endl;
       plausibility_params = testHighwayFast(
           evaluator, highway, optimizer.getHighwaysOutputDir(), proba);

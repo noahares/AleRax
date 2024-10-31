@@ -72,6 +72,8 @@ public:
   // highways
   bool highways;
   std::string highwayCandidateFile;
+  std::string fixedHighwaysFile;
+  bool individualHighwayTest;
   unsigned int highwayCandidatesStep1;
   unsigned int highwayCandidatesStep2;
 

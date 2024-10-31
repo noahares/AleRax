@@ -431,6 +431,12 @@ void runTransferHighwayInference(const AleArguments &args,
   // let's infer highways of transfers!
   auto highwayOutput =
       FileSystem::joinPaths(highwaysOutputDir, "highway_best_candidates.txt");
+  // fix given highways
+  std::vector<ScoredHighway> filteredHighways;
+  if (args.fixedHighwaysFile.size()) {
+    auto fixed_hws = HighwayCandidateParser::parse(args.fixedHighwaysFile, speciesTreeOptimizer.getSpeciesTree().getTree());
+    Highways::setFixedHighways(speciesTreeOptimizer, fixed_hws, filteredHighways);
+  }
   std::vector<ScoredHighway> candidateHighways;
   // initial candidates
   if (args.highwayCandidateFile.size()) {
@@ -449,8 +455,7 @@ void runTransferHighwayInference(const AleArguments &args,
   // first filtering step: we add each highway candidate individually, set a
   // small highway probability, and keep the highway if the likelihood improves.
   // We also sort the highways per likelihood
-  std::vector<ScoredHighway> filteredHighways;
-  bool individual_test = true;
+  bool individual_test = args.individualHighwayTest;
   Highways::filterCandidateHighwaysFast(speciesTreeOptimizer, candidateHighways,
                                         filteredHighways, sample_size, individual_test);
   filteredHighways.resize(
