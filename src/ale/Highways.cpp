@@ -279,9 +279,7 @@ void Highways::filterCandidateHighwaysFast(
         Logger::timed << "Accepting candidate: ";
         highway.proba = parameters[0];
         filteredHighways.push_back(ScoredHighway(highway, -llDiff));
-        if (individual_test) {
-          evaluator.removeHighway();
-        } else {
+        if (!individual_test) {
           evaluator.addHighway(highway);
           initialLL = parameters.getScore();
           evaluator.saveSnapshotPerFamilyLL();
