@@ -109,11 +109,11 @@ static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
   Parameters startingProbabilities(1);
   startingProbabilities[0] = startingProbability;
   OptimizationSettings settings;
-  settings.strategy = RecOpt::LBFGSB;
+  settings.strategy = RecOpt::Grid;
   settings.minAlpha = 0.001;
   settings.epsilon = 0.000001;
   // settings.verbose = true;
-  settings.factr = LBFGSBPrecision::LOW;
+  settings.factr = LBFGSBPrecision::MEDIUM;
   auto res =
       DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
   // res.constrain(MIN_PH, MAX_PH);
