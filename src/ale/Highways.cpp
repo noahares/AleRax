@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <optimizers/DTLOptimizer.hpp>
 #include <search/SpeciesTransferSearch.hpp>
+#include <string>
 #include <vector>
 
 // const double MIN_PH = 0.00000001;
@@ -16,11 +17,14 @@
 class HighwayFunction : public FunctionToOptimize {
 public:
   HighwayFunction(AleEvaluator &evaluator,
-                  const std::vector<Highway *> &highways)
-      : _highways(highways), _evaluator(evaluator) {}
+                  const std::vector<Highway *> &highways,
+                  bool print,
+                  const std::string &highwaysOutputDir = ""
+                  )
+      : _highways(highways), _evaluator(evaluator), _print(print),  _highwaysOutputDir(highwaysOutputDir) {}
 
   virtual double evaluate(Parameters &parameters) {
-    double v = evaluatePrint(parameters, false);
+    double v = evaluatePrint(parameters, _print, _highwaysOutputDir);
     // Logger::timed << "Evaluate transfer " << std::setprecision(17) <<
     // parameters << std::endl;
     return v;
@@ -40,7 +44,7 @@ public:
       assert(outputDir.size());
       std::string out = FileSystem::joinPaths(
           outputDir,
-          std::string("transferll_") + std::string(_highways[0]->src->label) +
+          std::string("transferll_") + std::to_string(parameters[0]) + std::string("_") + std::string(_highways[0]->src->label) +
               std::string("_") + std::string(_highways[0]->dest->label));
       _evaluator.savePerFamilyLikelihoodDiff(out);
     }
@@ -55,6 +59,8 @@ public:
 private:
   const std::vector<Highway *> &_highways;
   AleEvaluator &_evaluator;
+  bool _print;
+  const std::string &_highwaysOutputDir;
 };
 
 static Parameters testHighwayFast(AleEvaluator &evaluator,
@@ -64,7 +70,7 @@ static Parameters testHighwayFast(AleEvaluator &evaluator,
   std::vector<Highway *> highways;
   auto copy = highway;
   highways.push_back(&copy);
-  HighwayFunction f(evaluator, highways);
+  HighwayFunction f(evaluator, highways, false, highwaysOutputDir);
   Parameters parameters(1);
   parameters[0] = startingProbability;
   f.evaluatePrint(parameters, true, highwaysOutputDir);
@@ -76,7 +82,7 @@ static Parameters testHighways(AleEvaluator &evaluator,
                                const Parameters &startingProbabilities,
                                bool optimize, bool thorough) {
   assert(highways.size() == startingProbabilities.dimensions());
-  HighwayFunction f(evaluator, highways);
+  HighwayFunction f(evaluator, highways, false);
   if (optimize) {
     OptimizationSettings settings;
     settings.strategy = evaluator.getRecModelInfo().recOpt;
@@ -106,7 +112,7 @@ static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
   std::vector<Highway *> highways;
   auto copy = highway;
   highways.push_back(&copy);
-  HighwayFunction f(evaluator, highways);
+  HighwayFunction f(evaluator, highways, true, highwaysOutputDir);
   Parameters startingProbabilities(1);
   startingProbabilities[0] = startingProbability;
   OptimizationSettings settings;
