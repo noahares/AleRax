@@ -101,6 +101,7 @@ static Parameters testHighways(AleEvaluator &evaluator,
 
 static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
                                         Highway &highway,
+                                        const std::string &highwaysOutputDir,
                                         double startingProbability) {
   std::vector<Highway *> highways;
   auto copy = highway;
@@ -117,6 +118,7 @@ static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
   auto res =
       DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
   // res.constrain(MIN_PH, MAX_PH);
+  f.evaluatePrint(res, true, highwaysOutputDir);
   return res;
 }
 
@@ -194,7 +196,7 @@ void Highways::setFixedHighways(AleOptimizer &optimizer, std::vector<Highway> &h
                    << highway.dest->label << std::endl;
       continue;
     }
-      auto parameters = optimizeSingleHighway(evaluator, highway, proba);
+      auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), proba);
     auto llDiff = parameters.getScore() - initialLL;
     evaluator.addHighway(highway);
     initialLL = parameters.getScore();
@@ -273,7 +275,7 @@ void Highways::filterCandidateHighwaysFast(
     }
 
     if (llDiff > 0.01) {
-      auto parameters = optimizeSingleHighway(evaluator, highway, proba);
+      auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), proba);
       llDiff = parameters.getScore() - initialLL;
       if (individual_test || (2 * llDiff > log(sample_size))) {
         Logger::timed << "Accepting candidate: ";
