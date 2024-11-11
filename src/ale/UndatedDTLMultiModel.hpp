@@ -3,6 +3,7 @@
 #include "MultiModel.hpp"
 #include <IO/GeneSpeciesMapping.hpp>
 #include <ccp/ConditionalClades.hpp>
+#include <cmath>
 #include <maths/ScaledValue.hpp>
 #include <trees/DatedTree.hpp>
 #include <trees/PLLRootedTree.hpp>
@@ -229,8 +230,8 @@ template <class REAL> void UndatedDTLMultiModel<REAL>::updateCLV(CID cid) {
         auto ec = e * _gammaCatNumber + c;
         REAL v = REAL();
         computeProbability(cid, speciesNode, c, v);
-        tempUq[ec] = v;
         scale(v);
+        tempUq[ec] = v;
         sums[c] += v;
       }
     }
@@ -331,6 +332,7 @@ double UndatedDTLMultiModel<REAL>::computeLogLikelihood() {
     for (size_t c = 0; c < _gammaCatNumber; ++c) {
       categoryLikelihoods[c] +=
           _dtlclvs[rootCID]._uq[e * _gammaCatNumber + c] * _OP[e];
+      scale(categoryLikelihoods[c]);
     }
   }
   // condition on survival
@@ -495,6 +497,7 @@ void UndatedDTLMultiModel<REAL>::recomputeSpeciesProbabilities() {
     }
   }
   std::fill(_uE.begin(), _uE.end(), REAL());
+  std::fill(_uEBar.begin(), _uEBar.end(), REAL());
   auto transferSum = std::vector<REAL>(_gammaCatNumber, REAL());
   unsigned int maxIt = 4;
   for (unsigned int it = 0; it < maxIt; ++it) {
@@ -775,7 +778,7 @@ bool UndatedDTLMultiModel<REAL>::computeProbability(
       }
     }
   } // end of the iteraiton over the gene CCPs
-
+  scale(proba);
   if (not isSpeciesLeaf) {
     // SL event
     temp = _dtlclvs[cid]._uq[fc] * (_uE[gc] * _PS[ec]);
