@@ -112,15 +112,15 @@ static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
   std::vector<Highway *> highways;
   auto copy = highway;
   highways.push_back(&copy);
-  HighwayFunction f(evaluator, highways, true, highwaysOutputDir);
+  HighwayFunction f(evaluator, highways, false, highwaysOutputDir);
   Parameters startingProbabilities(1);
   startingProbabilities[0] = startingProbability;
   OptimizationSettings settings;
-  settings.strategy = RecOpt::Grid;
+  settings.strategy = RecOpt::LBFGSB;
   settings.minAlpha = 0.001;
   settings.epsilon = 0.000001;
   // settings.verbose = true;
-  settings.factr = LBFGSBPrecision::MEDIUM;
+  settings.factr = LBFGSBPrecision::LOW;
   auto res =
       DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
   // res.constrain(MIN_PH, MAX_PH);
@@ -190,28 +190,22 @@ void Highways::getCandidateHighways(AleOptimizer &optimizer,
 
 void Highways::setFixedHighways(AleOptimizer &optimizer, std::vector<Highway> &highways, std::vector<ScoredHighway> &fixed_highways) {
   auto &evaluator = optimizer.getEvaluator();
-  auto &speciesTree = optimizer.getSpeciesTree();
-  double initialLL = evaluator.computeLikelihood();
-  Logger::timed << "initial ll=" << initialLL << std::endl;
-  evaluator.saveSnapshotPerFamilyLL();
+  Logger::timed << "Adding all fixed highways"
+                << std::endl;
+  std::vector<Highway *> highwaysPtr;
+  Parameters startingProbabilities;
   for (auto &highway : highways) {
-    double proba = 0.01;
-    if (!isHighwayCompatible(highway, optimizer.getRecModelInfo(),
-                             speciesTree.getDatedTree())) {
-      Logger::info << "Incompatible highway " << highway.src->label << "->"
-                   << highway.dest->label << std::endl;
-      continue;
-    }
-      auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), proba);
-    auto llDiff = parameters.getScore() - initialLL;
-    evaluator.addHighway(highway);
-    initialLL = parameters.getScore();
-    highway.proba = parameters[0];
-    evaluator.saveSnapshotPerFamilyLL();
-    Logger::timed << "Fixed highway: " << highway.src->label << "->"
-                  << highway.dest->label << " added with p = " << highway.proba
-                  << " lldiff = " << llDiff << std::endl;
-    fixed_highways.push_back(ScoredHighway(highway, -llDiff));
+    startingProbabilities.addValue(0.01);
+    highwaysPtr.push_back(&highway);
+  }
+  auto parameters = testHighways(evaluator, highwaysPtr, startingProbabilities,
+                                 true, false);
+  Logger::info << parameters << std::endl;
+  for (unsigned int i = 0; i < highways.size(); ++i) {
+    ScoredHighway sh(highways[i]);
+    sh.highway.proba = parameters[i];
+    fixed_highways.push_back(sh);
+    evaluator.addHighway(sh.highway);
   }
 }
 
