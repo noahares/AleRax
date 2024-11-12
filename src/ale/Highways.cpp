@@ -60,7 +60,7 @@ private:
   const std::vector<Highway *> &_highways;
   AleEvaluator &_evaluator;
   bool _print;
-  const std::string &_highwaysOutputDir;
+  const std::string _highwaysOutputDir;
 };
 
 static Parameters testHighwayFast(AleEvaluator &evaluator,
