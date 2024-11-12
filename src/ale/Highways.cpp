@@ -1,5 +1,6 @@
 #include "Highways.hpp"
 #include "AleOptimizer.hpp"
+#include "util/enums.hpp"
 
 #include <IO/FileSystem.hpp>
 #include <IO/Logger.hpp>
@@ -88,6 +89,7 @@ static Parameters testHighways(AleEvaluator &evaluator,
     settings.strategy = evaluator.getRecModelInfo().recOpt;
     settings.minAlpha = 0.001;
     settings.epsilon = 0.000001;
+    settings.strategy = RecOpt::LBFGSB;
     settings.factr = LBFGSBPrecision::MEDIUM;
     // settings.verbose = true;
     if (thorough) {
