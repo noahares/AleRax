@@ -198,7 +198,7 @@ template <class REAL> void UndatedDTLMultiModel<REAL>::updateCLV(CID cid) {
   std::fill(uq.begin(), uq.end(), REAL());
   auto tempUq = uq;
   auto N = this->getPrunedSpeciesNodeNumber();
-  unsigned int maxIt = this->_info.noTL ? 1 : 4;
+  unsigned int maxIt = this->_info.noTL ? 1 : 6;
   std::fill(correctionSum.begin(), correctionSum.end(), REAL());
   std::fill(correctionNorm.begin(), correctionNorm.end(), N);
 
@@ -499,7 +499,8 @@ void UndatedDTLMultiModel<REAL>::recomputeSpeciesProbabilities() {
   std::fill(_uE.begin(), _uE.end(), REAL());
   std::fill(_uEBar.begin(), _uEBar.end(), REAL());
   auto transferSum = std::vector<REAL>(_gammaCatNumber, REAL());
-  unsigned int maxIt = 4;
+  // TODO: this should be a commandline parameter
+  unsigned int maxIt = 6;
   for (unsigned int it = 0; it < maxIt; ++it) {
     for (auto speciesNode : this->getPrunedSpeciesNodes()) {
       auto e = speciesNode->node_index;
