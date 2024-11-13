@@ -1,5 +1,6 @@
 #include "Highways.hpp"
 #include "AleOptimizer.hpp"
+#include "IO/HighwayCandidateParser.hpp"
 #include "util/enums.hpp"
 
 #include <IO/FileSystem.hpp>
@@ -79,10 +80,14 @@ static Parameters testHighwayFast(AleEvaluator &evaluator,
 }
 
 static Parameters testHighways(AleEvaluator &evaluator,
-                               const std::vector<Highway *> &highways,
+                               std::vector<ScoredHighway> &scoredHighways,
                                const Parameters &startingProbabilities,
-                               bool optimize, bool thorough) {
-  assert(highways.size() == startingProbabilities.dimensions());
+                               bool optimize, bool thorough, bool individual_contribution) {
+  assert(scoredHighways.size() == startingProbabilities.dimensions());
+  std::vector<Highway *> highways;
+  for (auto &highway : scoredHighways) {
+    highways.push_back(&highway.highway);
+  }
   HighwayFunction f(evaluator, highways, false);
   if (optimize) {
     OptimizationSettings settings;
@@ -98,7 +103,17 @@ static Parameters testHighways(AleEvaluator &evaluator,
     }
     auto res =
         DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
-    // res.constrain(MIN_PH, MAX_PH);
+    if (individual_contribution) {
+      auto initial_ll = res.getScore();
+      for (std::size_t i = 0; i < res.dimensions(); ++i) {
+        auto parameters = res;
+        parameters[i] = 0.0;
+        auto new_ll = f.evaluate(parameters);
+        auto lldiff = initial_ll - new_ll;
+        scoredHighways[i].scoreDiff = lldiff;
+        Logger::info << "LL diff from highway " << scoredHighways[i].highway << ": " << lldiff << std::endl;
+      }
+    }
     return res;
   } else {
     auto parameters = startingProbabilities;
@@ -194,20 +209,17 @@ void Highways::setFixedHighways(AleOptimizer &optimizer, std::vector<Highway> &h
   auto &evaluator = optimizer.getEvaluator();
   Logger::timed << "Adding all fixed highways"
                 << std::endl;
-  std::vector<Highway *> highwaysPtr;
   Parameters startingProbabilities;
   for (auto &highway : highways) {
-    startingProbabilities.addValue(0.01);
-    highwaysPtr.push_back(&highway);
+    startingProbabilities.addValue(highway.proba);
+    fixed_highways.push_back(ScoredHighway(highway));
   }
-  auto parameters = testHighways(evaluator, highwaysPtr, startingProbabilities,
-                                 true, false);
+  auto parameters = testHighways(evaluator, fixed_highways, startingProbabilities,
+                                 true, false, true);
   Logger::info << parameters << std::endl;
   for (unsigned int i = 0; i < highways.size(); ++i) {
-    ScoredHighway sh(highways[i]);
-    sh.highway.proba = parameters[i];
-    fixed_highways.push_back(sh);
-    evaluator.addHighway(sh.highway);
+    fixed_highways[i].highway.proba = parameters[i];
+    evaluator.addHighway(fixed_highways[i].highway);
   }
 }
 
@@ -309,30 +321,22 @@ void Highways::filterCandidateHighwaysFast(
 
 void Highways::optimizeAllHighways(
     AleOptimizer &optimizer,
-    const std::vector<ScoredHighway> &candidateHighways,
-    std::vector<ScoredHighway> &acceptedHighways, bool thorough) {
+    std::vector<ScoredHighway> &highways,
+    bool thorough) {
   auto &evaluator = optimizer.getEvaluator();
   Logger::timed << "Trying to add all candidate highways simultaneously"
                 << std::endl;
-  std::vector<Highway> highways;
-  std::vector<Highway *> highwaysPtr;
   Parameters startingProbabilities;
-  for (const auto candidate : candidateHighways) {
-    highways.push_back(candidate.highway);
+  for (const auto candidate : highways) {
     startingProbabilities.addValue(candidate.highway.proba);
   }
-  for (auto &highway : highways) {
-    highwaysPtr.push_back(&highway);
-  }
-  auto parameters = testHighways(evaluator, highwaysPtr, startingProbabilities,
-                                 true, thorough);
+  auto parameters = testHighways(evaluator, highways, startingProbabilities,
+                                 true, thorough, true);
   Logger::info << parameters << std::endl;
-  for (unsigned int i = 0; i < candidateHighways.size(); ++i) {
-    ScoredHighway sh(candidateHighways[i]);
-    sh.highway.proba = parameters[i];
-    acceptedHighways.push_back(sh);
-    evaluator.addHighway(sh.highway);
+  for (unsigned int i = 0; i < highways.size(); ++i) {
+    highways[i].highway.proba = parameters[i];
+    evaluator.addHighway(highways[i].highway);
   }
-  std::sort(acceptedHighways.rbegin(), acceptedHighways.rend(),
+  std::sort(highways.rbegin(), highways.rend(),
             cmpHighwayByProbability);
 }

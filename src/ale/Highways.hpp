@@ -30,7 +30,6 @@ public:
 
   static void
   optimizeAllHighways(AleOptimizer &optimizer,
-                      const std::vector<ScoredHighway> &candidateHighways,
-                      std::vector<ScoredHighway> &acceptedHighways,
+                      std::vector<ScoredHighway> &highways,
                       bool thorough);
 };

@@ -461,25 +461,20 @@ void runTransferHighwayInference(const AleArguments &args,
   // now optimize all highways together
   auto acceptedHighwayOutput =
       FileSystem::joinPaths(highwaysOutputDir, "highway_accepted_highways.txt");
-  std::vector<ScoredHighway> acceptedHighways;
   if (!individual_test) {
     filteredHighways.resize(
         std::min(filteredHighways.size(), size_t(args.highwayCandidatesStep2)));
-    Highways::optimizeAllHighways(speciesTreeOptimizer, filteredHighways,
-                                  acceptedHighways, true);
+    Highways::optimizeAllHighways(speciesTreeOptimizer, filteredHighways,true);
   } else {
     auto &evaluator = speciesTreeOptimizer.getEvaluator();
 
-    for (unsigned int i = 0; i < filteredHighways.size(); ++i) {
-      ScoredHighway sh(filteredHighways[i]);
-      sh.highway.proba = filteredHighways[i].highway.proba;
-      acceptedHighways.push_back(sh);
-      evaluator.addHighway(sh.highway);
+    for (auto &highway : filteredHighways) {
+      evaluator.addHighway(highway.highway);
     }
-    std::sort(acceptedHighways.rbegin(), acceptedHighways.rend(),
+    std::sort(filteredHighways.rbegin(), filteredHighways.rend(),
               cmpHighwayByProbability);
   }
-  speciesTreeOptimizer.saveBestHighways(acceptedHighways,
+  speciesTreeOptimizer.saveBestHighways(filteredHighways,
                                         acceptedHighwayOutput);
 }
 
