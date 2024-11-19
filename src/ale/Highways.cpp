@@ -137,7 +137,7 @@ static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
   settings.minAlpha = 0.001;
   settings.epsilon = 0.000001;
   // settings.verbose = true;
-  settings.factr = LBFGSBPrecision::LOW;
+  settings.factr = LBFGSBPrecision::MEDIUM;
   auto res =
       DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
   // res.constrain(MIN_PH, MAX_PH);
@@ -289,7 +289,7 @@ void Highways::filterCandidateHighwaysFast(
     }
 
     if (llDiff > 0.01) {
-      auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), proba);
+      auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), 0.1);
       llDiff = parameters.getScore() - initialLL;
       if (individual_test || (2 * llDiff > log(sample_size))) {
         Logger::timed << "Accepting candidate: ";
