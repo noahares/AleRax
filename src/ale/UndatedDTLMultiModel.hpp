@@ -803,16 +803,16 @@ bool UndatedDTLMultiModel<REAL>::computeProbability(
       return true;
     }
   }
-  // DL event
-  temp = _dtlclvs[cid]._uq[ec] * (2.0 * _uE[ec]) * _PD[ec];
-  scale(temp);
-  proba += temp;
-  if (recCell && proba > maxProba) {
-    recCell->event.type = ReconciliationEventType::EVENT_DL;
-    return true;
-  }
-  // TL event
   if (!this->_info.noTL) {
+    // DL event
+    temp = _dtlclvs[cid]._uq[ec] * (2.0 * _uE[ec]) * _PD[ec];
+    scale(temp);
+    proba += temp;
+    if (recCell && proba > maxProba) {
+      recCell->event.type = ReconciliationEventType::EVENT_DL;
+      return true;
+    }
+    // TL event
     // the gene is transfered to the dest species and goes extinct in
     // the src species
     temp = getTransferSum(cid, e, c) * (_PT[ec]);
