@@ -1,5 +1,6 @@
 #pragma once
 
+#include "IO/HighwayCandidateParser.hpp"
 #include "MultiModel.hpp"
 #include <IO/GeneSpeciesMapping.hpp>
 #include <ccp/ConditionalClades.hpp>
@@ -29,6 +30,7 @@ public:
   virtual void setRates(const RatesVector &);
   virtual void setAlpha(double alpha);
   virtual double computeLogLikelihood();
+  virtual double computeHighwayTerm(Highway &highway);
   virtual corax_rnode_t *sampleSpeciesNode(unsigned int &category);
   virtual void setHighways(const std::vector<Highway> &highways) {
     for (auto &speciesWeightedHighways : _highways) {
@@ -185,6 +187,45 @@ template <class REAL> void UndatedDTLMultiModel<REAL>::setAlpha(double alpha) {
   recomputeSpeciesProbabilities();
 }
 
+template <class REAL> double UndatedDTLMultiModel<REAL>::computeHighwayTerm(Highway &highway) {
+  auto e = highway.src->node_index;
+  for (size_t c = 0; c < _gammaCatNumber; ++c) {
+    auto ec = e * _gammaCatNumber + c;
+    _PD[ec] = _dtlRates[0][e];
+    _PL[ec] = _dtlRates[1][e];
+    _PT[ec] = _dtlRates[2][e];
+    _PS[ec] = _gammaScalers[c];
+    if (this->_info.noDup) {
+      _PD[ec] = 0.0;
+    }
+    auto sum = _PD[ec] + _PL[ec] + _PT[ec] + _PS[ec];
+    for (auto &hw : _highways[e]) {
+      if (hw.highway.dest == highway.dest) {
+        hw.highway.proba = highway.proba;
+      }
+    }
+    sum += highway.proba;
+    _PD[ec] /= sum;
+    _PL[ec] /= sum;
+    _PT[ec] /= sum;
+    _PS[ec] /= sum;
+    for (auto &highway : _highways[e]) {
+      assert(highway.highway.proba >= 0.0);
+      highway.proba = highway.highway.proba / sum;
+      assert(highway.proba < 1.0);
+    }
+  }
+  REAL sum = REAL();
+  CID cid = this->_ccp.getCladesNumber() - 1;
+  for (size_t c = 0; c < _gammaCatNumber; ++c) {
+    REAL v = REAL();
+    computeProbability(cid, highway.src, c, v);
+    scale(v);
+    sum += v;
+  }
+  scale(sum);
+  return log(sum);
+}
 /*
  *  We fill the intermediate likelihood table (P_{e,u} in the paper) for a given
  *  gene CCP

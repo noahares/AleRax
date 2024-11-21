@@ -63,6 +63,7 @@ public:
    *  @return The log likelihood
    */
   virtual double computeLikelihood(PerFamLL *perFamLL = nullptr);
+  virtual double computeHighwayTerm(Highway &highway);
 
   /**
    *  Fast approximated version of computeLikelihood, used by some

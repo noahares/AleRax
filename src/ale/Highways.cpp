@@ -65,6 +65,37 @@ private:
   const std::string _highwaysOutputDir;
 };
 
+class HighwayFunctionSingle : public FunctionToOptimize {
+public:
+  HighwayFunctionSingle(AleEvaluator &evaluator,
+                  Highway &highway)
+      : _highway(highway), _evaluator(evaluator) {
+        _evaluator.addHighway(highway);
+        _evaluator.computeLikelihood();
+      }
+  ~HighwayFunctionSingle() {
+    _evaluator.removeHighway();
+  }
+
+  virtual double evaluate(Parameters &parameters) {
+    _highway.proba = parameters[0];
+    auto ll = _evaluator.computeHighwayTerm(_highway);
+    parameters.setScore(ll);
+    return ll;
+  }
+
+  double evaluateFull(Parameters &parameters) {
+    _evaluator.removeHighway();
+    _highway.proba = parameters[0];
+    _evaluator.addHighway(_highway);
+    auto ll = _evaluator.computeLikelihood();
+    parameters.setScore(ll);
+    return ll;
+  }
+private:
+  Highway &_highway;
+  AleEvaluator &_evaluator;
+};
 static Parameters testHighwayFast(AleEvaluator &evaluator,
                                   const Highway &highway,
                                   const std::string &highwaysOutputDir,
@@ -126,10 +157,10 @@ static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
                                         Highway &highway,
                                         const std::string &highwaysOutputDir,
                                         double startingProbability) {
-  std::vector<Highway *> highways;
-  auto copy = highway;
-  highways.push_back(&copy);
-  HighwayFunction f(evaluator, highways, false, highwaysOutputDir);
+  // std::vector<Highway *> highways;
+  // auto copy = highway;
+  // highways.push_back(&copy);
+  HighwayFunctionSingle f(evaluator, highway);
   Parameters startingProbabilities(1);
   startingProbabilities[0] = startingProbability;
   OptimizationSettings settings;
@@ -141,7 +172,7 @@ static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
   auto res =
       DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
   // res.constrain(MIN_PH, MAX_PH);
-  f.evaluatePrint(res, true, highwaysOutputDir);
+  f.evaluateFull(res);
   return res;
 }
 
@@ -275,36 +306,19 @@ void Highways::filterCandidateHighwaysFast(
     }
     Logger::timed << "Testing candidate: " << highway.src->label << "->"
                   << highway.dest->label << " with p = " << proba << std::endl;
-    auto plausibility_params = testHighwayFast(
-        evaluator, highway, optimizer.getHighwaysOutputDir(), proba);
-    auto llDiff = plausibility_params.getScore() - initialLL;
-    if (llDiff < 0.01) {
-      proba = 0.1;
-      Logger::timed
-          << "No improvement with small probability! LlDiff = " << llDiff << " Trying again with p = "
-          << proba << std::endl;
-      plausibility_params = testHighwayFast(
-          evaluator, highway, optimizer.getHighwaysOutputDir(), proba);
-      llDiff = plausibility_params.getScore() - initialLL;
-    }
-
-    if (llDiff > 0.01) {
-      auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), 0.1);
-      llDiff = parameters.getScore() - initialLL;
-      if (individual_test || (2 * llDiff > log(sample_size))) {
-        Logger::timed << "Accepting candidate: ";
-        highway.proba = parameters[0];
-        filteredHighways.push_back(ScoredHighway(highway, -llDiff));
-        if (!individual_test) {
-          evaluator.addHighway(highway);
-          initialLL = parameters.getScore();
-          evaluator.saveSnapshotPerFamilyLL();
-        }
-      } else {
-        Logger::timed << "Rejecting (BIC) candidate: ";
+    auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), 0.1);
+    auto llDiff = parameters.getScore() - initialLL;
+    if (individual_test || (2 * llDiff > log(sample_size))) {
+      Logger::timed << "Accepting candidate: ";
+      highway.proba = parameters[0];
+      filteredHighways.push_back(ScoredHighway(highway, -llDiff));
+      if (!individual_test) {
+        evaluator.addHighway(highway);
+        initialLL = parameters.getScore();
+        evaluator.saveSnapshotPerFamilyLL();
       }
     } else {
-      Logger::timed << "Rejecting (noImprov) candidate: ";
+      Logger::timed << "Rejecting (BIC) candidate: ";
     }
     Logger::info << highway.src->label << "->" << highway.dest->label
                  << " ll diff = " << llDiff << " best proba = " << highway.proba

@@ -123,6 +123,42 @@ void AleEvaluator::resetAllPrecisions() {
 
 double AleEvaluator::computeLikelihoodFast() { return computeLikelihood(); }
 
+double AleEvaluator::computeHighwayTerm(Highway &highway) {
+  double sumLL = 0.0;
+  for (unsigned int i = 0; i < _evaluations.size(); ++i) {
+    auto famIndex = _geneTrees.getTrees()[i].familyIndex;
+    auto ll = _evaluations[i]->computeHighwayTerm(highway);
+    auto &family = _families[famIndex];
+    if (_highPrecisions[i] == -1 && !std::isnormal(ll)) {
+      // we are in low precision mode (we use double)
+      // and it's not accurate enough, switch to
+      // high precision mode
+
+      resetEvaluation(i, true);
+      ll = _evaluations[i]->computeLogLikelihood();
+    }
+    if (!std::isnormal(ll)) {
+      std::cerr << "Error: ll=" << ll << " for family " << family.name
+      << std::endl;
+    }
+    assert(std::isnormal(ll));
+    /*
+       if (_highPrecisions[i] >= 0 && _highPrecisions[i] % 20 == 0) {
+    // we are in high precision mode, we now check if we can
+    // switch to low precision mode to make computations faster
+    resetEvaluation(i, false);
+    }
+    */
+    if (_highPrecisions[i] >= 0) {
+      _highPrecisions[i]++;
+    }
+    sumLL += ll;
+  }
+  // printHightPrecisionCount();
+  ParallelContext::sumDouble(sumLL);
+  return sumLL;
+}
+
 double AleEvaluator::computeLikelihood(PerFamLL *perFamLL) {
   std::vector<double> localLL;
   if (perFamLL) {
