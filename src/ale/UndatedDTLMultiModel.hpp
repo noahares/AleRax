@@ -189,40 +189,45 @@ template <class REAL> void UndatedDTLMultiModel<REAL>::setAlpha(double alpha) {
 
 template <class REAL> double UndatedDTLMultiModel<REAL>::computeHighwayTerm(Highway &highway) {
   auto e = highway.src->node_index;
-  for (size_t c = 0; c < _gammaCatNumber; ++c) {
-    auto ec = e * _gammaCatNumber + c;
-    _PD[ec] = _dtlRates[0][e];
-    _PL[ec] = _dtlRates[1][e];
-    _PT[ec] = _dtlRates[2][e];
-    _PS[ec] = _gammaScalers[c];
-    if (this->_info.noDup) {
-      _PD[ec] = 0.0;
-    }
-    auto sum = _PD[ec] + _PL[ec] + _PT[ec] + _PS[ec];
-    for (auto &hw : _highways[e]) {
-      if (hw.highway.dest == highway.dest) {
-        hw.highway.proba = highway.proba;
-      }
-    }
-    sum += highway.proba;
-    _PD[ec] /= sum;
-    _PL[ec] /= sum;
-    _PT[ec] /= sum;
-    _PS[ec] /= sum;
-    for (auto &highway : _highways[e]) {
-      assert(highway.highway.proba >= 0.0);
-      highway.proba = highway.highway.proba / sum;
-      assert(highway.proba < 1.0);
+  for (auto &hw : _highways[e]) {
+    if (hw.highway.dest == highway.dest) {
+      hw.highway.proba = highway.proba;
     }
   }
+  recomputeSpeciesProbabilities();
+
   REAL sum = REAL();
-  CID cid = this->_ccp.getCladesNumber() - 1;
-  for (size_t c = 0; c < _gammaCatNumber; ++c) {
-    REAL v = REAL();
-    computeProbability(cid, highway.src, c, v);
-    scale(v);
-    sum += v;
+  for (CID cid = 0; cid < this->_ccp.getCladesNumber(); ++cid) {
+    auto &clv = _dtlclvs[cid];
+    auto &uq = clv._uq;
+    auto tempUq = uq;
+    auto speciesNode = highway.src;
+    while (speciesNode) {
+      auto e = speciesNode->node_index;
+      for (size_t c = 0; c < _gammaCatNumber; ++c) {
+        auto ec = e * _gammaCatNumber + c;
+        REAL v = REAL();
+        computeProbability(cid, speciesNode, c, v);
+        scale(v);
+        tempUq[ec] = v;
+      }
+      speciesNode = speciesNode->parent;
+    }
+    std::swap(tempUq, uq);
   }
+  auto speciesNode = highway.src;
+  while (speciesNode) {
+    auto e = speciesNode->node_index;
+    for (size_t c = 0; c < _gammaCatNumber; ++c) {
+        auto ec = e * _gammaCatNumber + c;
+        sum += _dtlclvs[this->_ccp.getCladesNumber() - 1]._uq[ec] * _OP[e];
+        scale(sum);
+    }
+    speciesNode = speciesNode->parent;
+  }
+  // sum /= getLikelihoodFactor(0);
+  // sum * double(this->getPrunedSpeciesNodeNumber());
+  // sum *= _uE[e];
   scale(sum);
   return log(sum);
 }
