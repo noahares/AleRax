@@ -135,7 +135,7 @@ double AleEvaluator::computeHighwayTerm(Highway &highway) {
       // high precision mode
 
       resetEvaluation(i, true);
-      ll = _evaluations[i]->computeLogLikelihood();
+      ll = _evaluations[i]->computeHighwayTerm(highway);
     }
     if (!std::isnormal(ll)) {
       std::cerr << "Error: ll=" << ll << " for family " << family.name
