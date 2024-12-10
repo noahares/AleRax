@@ -435,7 +435,7 @@ void runTransferHighwayInference(const AleArguments &args,
   std::vector<ScoredHighway> filteredHighways;
   if (args.fixedHighwaysFile.size()) {
     auto fixed_hws = HighwayCandidateParser::parse(args.fixedHighwaysFile, speciesTreeOptimizer.getSpeciesTree().getTree());
-    Highways::setFixedHighways(speciesTreeOptimizer, fixed_hws, filteredHighways);
+    Highways::setFixedHighways(speciesTreeOptimizer, fixed_hws, filteredHighways, highwaysOutputDir);
   }
   std::vector<ScoredHighway> candidateHighways;
   // initial candidates
@@ -464,7 +464,7 @@ void runTransferHighwayInference(const AleArguments &args,
   if (!individual_test) {
     filteredHighways.resize(
         std::min(filteredHighways.size(), size_t(args.highwayCandidatesStep2)));
-    Highways::optimizeAllHighways(speciesTreeOptimizer, filteredHighways,true);
+    Highways::optimizeAllHighways(speciesTreeOptimizer, filteredHighways,true, highwaysOutputDir);
   } else {
     auto &evaluator = speciesTreeOptimizer.getEvaluator();
 

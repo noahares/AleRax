@@ -19,7 +19,8 @@ public:
 
   static void setFixedHighways(AleOptimizer &optimizer,
                                std::vector<Highway> &highways,
-                               std::vector<ScoredHighway> &fixedHighways);
+                               std::vector<ScoredHighway> &fixedHighways,
+                               const std::string outputDir);
   /**
    *  Filter the highway candidates by testing them with a small hardcoded
    * probability
@@ -31,5 +32,6 @@ public:
   static void
   optimizeAllHighways(AleOptimizer &optimizer,
                       std::vector<ScoredHighway> &highways,
-                      bool thorough);
+                      bool thorough,
+                      const std::string outputDir);
 };

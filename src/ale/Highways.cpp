@@ -46,8 +46,8 @@ public:
       assert(outputDir.size());
       std::string out = FileSystem::joinPaths(
           outputDir,
-          std::string("transferll_") + std::to_string(parameters[0]) + std::string("_") + std::string(_highways[0]->src->label) +
-              std::string("_") + std::string(_highways[0]->dest->label));
+          std::string("transferll_") + std::string(_highways[0]->src->label) +
+              std::string("_") + std::string(_highways[0]->dest->label) + std::string("_") + std::to_string(parameters[0]));
       _evaluator.savePerFamilyLikelihoodDiff(out);
     }
     for (auto highway : _highways) {
@@ -56,6 +56,42 @@ public:
     }
     parameters.setScore(ll);
     return ll;
+  }
+
+  virtual void printIndividualContribution(Parameters &parameters, const std::string outputDir, std::vector<ScoredHighway> &scoredHighways) {
+    for (unsigned int i = 0; i < scoredHighways.size(); ++i) {
+      Highway highwayCopy = scoredHighways[i].highway;
+      highwayCopy.proba = parameters[i];
+      _evaluator.addHighway(highwayCopy);
+    }
+    auto initial_ll = _evaluator.computeLikelihood();
+    _evaluator.saveSnapshotPerFamilyLL();
+    for (auto highway : _highways) {
+      (void)(highway);
+      _evaluator.removeHighway();
+    }
+    for (std::size_t i = 0; i < parameters.dimensions(); ++i) {
+      auto params = parameters;
+      params[i] = 0.0;
+      for (unsigned int i = 0; i < scoredHighways.size(); ++i) {
+          Highway highwayCopy = scoredHighways[i].highway;
+          highwayCopy.proba = params[i];
+          _evaluator.addHighway(highwayCopy);
+        }
+      auto new_ll = _evaluator.computeLikelihood();
+      auto lldiff = initial_ll - new_ll;
+      scoredHighways[i].scoreDiff = lldiff;
+      Logger::info << "LL diff from highway " << scoredHighways[i].highway << ": " << lldiff << std::endl;
+      std::string out = FileSystem::joinPaths(
+        outputDir,
+        std::string("fixed_transferll_") + std::string(scoredHighways[i].highway.src->label) +
+        std::string("_") + std::string(scoredHighways[i].highway.dest->label) + std::string("_") + std::to_string(parameters[i]));
+      _evaluator.savePerFamilyLikelihoodDiff(out, true);
+      for (auto highway : _highways) {
+        (void)(highway);
+        _evaluator.removeHighway();
+      }
+    }
   }
 
 private:
@@ -113,7 +149,9 @@ static Parameters testHighwayFast(AleEvaluator &evaluator,
 static Parameters testHighways(AleEvaluator &evaluator,
                                std::vector<ScoredHighway> &scoredHighways,
                                const Parameters &startingProbabilities,
-                               bool optimize, bool thorough, bool individual_contribution) {
+                               bool optimize, bool thorough,
+                               bool individual_contribution,
+                               const std::string outputDir) {
   assert(scoredHighways.size() == startingProbabilities.dimensions());
   std::vector<Highway *> highways;
   for (auto &highway : scoredHighways) {
@@ -135,15 +173,7 @@ static Parameters testHighways(AleEvaluator &evaluator,
     auto res =
         DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
     if (individual_contribution) {
-      auto initial_ll = res.getScore();
-      for (std::size_t i = 0; i < res.dimensions(); ++i) {
-        auto parameters = res;
-        parameters[i] = 0.0;
-        auto new_ll = f.evaluate(parameters);
-        auto lldiff = initial_ll - new_ll;
-        scoredHighways[i].scoreDiff = lldiff;
-        Logger::info << "LL diff from highway " << scoredHighways[i].highway << ": " << lldiff << std::endl;
-      }
+      f.printIndividualContribution(res, outputDir, scoredHighways);
     }
     return res;
   } else {
@@ -236,7 +266,7 @@ void Highways::getCandidateHighways(AleOptimizer &optimizer,
   }
 }
 
-void Highways::setFixedHighways(AleOptimizer &optimizer, std::vector<Highway> &highways, std::vector<ScoredHighway> &fixed_highways) {
+void Highways::setFixedHighways(AleOptimizer &optimizer, std::vector<Highway> &highways, std::vector<ScoredHighway> &fixed_highways, const std::string outputDir) {
   auto &evaluator = optimizer.getEvaluator();
   Logger::timed << "Adding all fixed highways"
                 << std::endl;
@@ -246,7 +276,7 @@ void Highways::setFixedHighways(AleOptimizer &optimizer, std::vector<Highway> &h
     fixed_highways.push_back(ScoredHighway(highway));
   }
   auto parameters = testHighways(evaluator, fixed_highways, startingProbabilities,
-                                 true, false, true);
+                                 true, false, true, outputDir);
   Logger::info << parameters << std::endl;
   for (unsigned int i = 0; i < highways.size(); ++i) {
     fixed_highways[i].highway.proba = parameters[i];
@@ -336,7 +366,8 @@ void Highways::filterCandidateHighwaysFast(
 void Highways::optimizeAllHighways(
     AleOptimizer &optimizer,
     std::vector<ScoredHighway> &highways,
-    bool thorough) {
+    bool thorough,
+    const std::string outputDir) {
   auto &evaluator = optimizer.getEvaluator();
   Logger::timed << "Trying to add all candidate highways simultaneously"
                 << std::endl;
@@ -345,7 +376,7 @@ void Highways::optimizeAllHighways(
     startingProbabilities.addValue(candidate.highway.proba);
   }
   auto parameters = testHighways(evaluator, highways, startingProbabilities,
-                                 true, thorough, true);
+                                 true, thorough, true, outputDir);
   Logger::info << parameters << std::endl;
   for (unsigned int i = 0; i < highways.size(); ++i) {
     highways[i].highway.proba = parameters[i];

@@ -135,7 +135,7 @@ public:
   void sampleScenarios(unsigned int family, unsigned int samples,
                        std::vector<std::shared_ptr<Scenario>> &scenarios);
   std::string getOutputDir() const { return _outputDir; }
-  void savePerFamilyLikelihoodDiff(const std::string &output);
+  void savePerFamilyLikelihoodDiff(const std::string &output, bool flip_sign = false);
   void saveSnapshotPerFamilyLL();
   std::vector<AleModelParameters> &getModelParameters() {
     return _modelParameters;

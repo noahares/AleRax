@@ -512,7 +512,7 @@ struct ScoredString {
   double score;
 };
 
-void AleEvaluator::savePerFamilyLikelihoodDiff(const std::string &output) {
+void AleEvaluator::savePerFamilyLikelihoodDiff(const std::string &output, bool flip_sign) {
   std::vector<unsigned int> indices;
   std::vector<double> likelihoods;
   for (unsigned int i = 0; i < _evaluations.size(); ++i) {
@@ -532,8 +532,10 @@ void AleEvaluator::savePerFamilyLikelihoodDiff(const std::string &output) {
   for (unsigned int i = 0; i < allLikelihoods.size(); ++i) {
     auto &family = _families[allIndices[i]];
     auto ll = allLikelihoods[i];
+    auto diff = ll - _snapshotPerFamilyLL[i];
+    if (flip_sign) diff *= -1.0;
     scoredFamilies.push_back(
-        ScoredString(family.name, ll - _snapshotPerFamilyLL[i]));
+        ScoredString(family.name, diff));
   }
   std::sort(scoredFamilies.begin(), scoredFamilies.end());
   for (const auto &scoredFamily : scoredFamilies) {
