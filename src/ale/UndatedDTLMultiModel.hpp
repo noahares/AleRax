@@ -194,6 +194,7 @@ template <class REAL> double UndatedDTLMultiModel<REAL>::computeHighwayTerm(High
       hw.highway.proba = highway.proba;
     }
   }
+  // can skip recomputing rates for all but highway.src
   recomputeSpeciesProbabilities();
 
   REAL sum = REAL();
@@ -201,7 +202,10 @@ template <class REAL> double UndatedDTLMultiModel<REAL>::computeHighwayTerm(High
     auto &clv = _dtlclvs[cid];
     auto &uq = clv._uq;
     auto tempUq = uq;
+    auto &correctionSum = clv._correctionSum;
+    std::fill(correctionSum.begin(), correctionSum.end(), REAL());
     auto speciesNode = highway.src;
+    std::vector<REAL> sums(_gammaCatNumber, REAL());
     while (speciesNode) {
       auto e = speciesNode->node_index;
       for (size_t c = 0; c < _gammaCatNumber; ++c) {
@@ -210,10 +214,36 @@ template <class REAL> double UndatedDTLMultiModel<REAL>::computeHighwayTerm(High
         computeProbability(cid, speciesNode, c, v);
         scale(v);
         tempUq[ec] = v;
+        sums[c] += v;
       }
       speciesNode = speciesNode->parent;
     }
     std::swap(tempUq, uq);
+
+    if (_transferConstraint == TransferConstaint::PARENTS) {
+      auto postOrder = this->_speciesTree.getPostOrderNodes();
+      for (auto it = postOrder.rbegin(); it != postOrder.rend(); ++it) {
+        auto speciesNode = *it;
+        auto e = speciesNode->node_index;
+        for (size_t c = 0; c < _gammaCatNumber; ++c) {
+          auto parent = speciesNode;
+          auto ec = e * _gammaCatNumber + c;
+          while (parent) {
+            auto p = parent->node_index;
+            auto pc = p * _gammaCatNumber + c;
+            auto temp = uq[pc];
+            scale(temp);
+            correctionSum[ec] += temp;
+            parent = parent->parent;
+          }
+        }
+      }
+    }
+    std::fill(clv._survivingTransferSum.begin(), clv._survivingTransferSum.end(),
+              REAL());
+    for (size_t c = 0; c < _gammaCatNumber; ++c) {
+      clv._survivingTransferSum[c] = sums[c];
+    }
   }
   auto speciesNode = highway.src;
   while (speciesNode) {
