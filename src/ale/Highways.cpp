@@ -183,7 +183,7 @@ static Parameters testHighways(AleEvaluator &evaluator,
   }
 }
 
-static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
+static Parameters optimizeSingleHighwayApprox(AleEvaluator &evaluator,
                                         Highway &highway,
                                         const std::string &highwaysOutputDir,
                                         double startingProbability) {
@@ -203,6 +203,29 @@ static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
       DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
   // res.constrain(MIN_PH, MAX_PH);
   f.evaluateFull(res);
+  return res;
+}
+
+static Parameters optimizeSingleHighway(AleEvaluator &evaluator,
+                                        Highway &highway,
+                                        const std::string &highwaysOutputDir,
+                                        double startingProbability) {
+  std::vector<Highway *> highways;
+  auto copy = highway;
+  highways.push_back(&copy);
+  HighwayFunction f(evaluator, highways, false, highwaysOutputDir);
+  Parameters startingProbabilities(1);
+  startingProbabilities[0] = startingProbability;
+  OptimizationSettings settings;
+  settings.strategy = RecOpt::LBFGSB;
+  settings.minAlpha = 0.001;
+  settings.epsilon = 0.000001;
+  // settings.verbose = true;
+  settings.factr = LBFGSBPrecision::MEDIUM;
+  auto res =
+      DTLOptimizer::optimizeParameters(f, startingProbabilities, settings);
+  // res.constrain(MIN_PH, MAX_PH);
+  f.evaluatePrint(res, true, highwaysOutputDir);
   return res;
 }
 

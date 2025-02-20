@@ -203,7 +203,6 @@ template <class REAL> double UndatedDTLMultiModel<REAL>::computeHighwayTerm(High
     auto &uq = clv._uq;
     auto tempUq = uq;
     auto &correctionSum = clv._correctionSum;
-    std::fill(correctionSum.begin(), correctionSum.end(), REAL());
     auto speciesNode = highway.src;
     std::vector<REAL> sums(_gammaCatNumber, REAL());
     while (speciesNode) {
@@ -221,6 +220,7 @@ template <class REAL> double UndatedDTLMultiModel<REAL>::computeHighwayTerm(High
     std::swap(tempUq, uq);
 
     if (_transferConstraint == TransferConstaint::PARENTS) {
+      std::fill(correctionSum.begin(), correctionSum.end(), REAL());
       auto postOrder = this->_speciesTree.getPostOrderNodes();
       for (auto it = postOrder.rbegin(); it != postOrder.rend(); ++it) {
         auto speciesNode = *it;
