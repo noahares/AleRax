@@ -349,7 +349,7 @@ void Highways::filterCandidateHighwaysFast(
   evaluator.saveSnapshotPerFamilyLL();
   for (const auto &scoredHighway : highways) {
     if (std::find(filteredHighways.begin(), filteredHighways.end(), scoredHighway) != filteredHighways.end()) { continue; }
-    double proba = 0.01;
+    double proba = 0.1;
     auto highway = scoredHighway.highway;
     if (!isHighwayCompatible(highway, optimizer.getRecModelInfo(),
                              speciesTree.getDatedTree())) {
@@ -358,20 +358,30 @@ void Highways::filterCandidateHighwaysFast(
       continue;
     }
     Logger::timed << "Testing candidate: " << highway.src->label << "->"
-                  << highway.dest->label << " with p = " << proba << std::endl;
-    auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), 0.1);
-    auto llDiff = parameters.getScore() - initialLL;
-    if (individual_test || (2 * llDiff > log(sample_size))) {
-      Logger::timed << "Accepting candidate: ";
-      highway.proba = parameters[0];
-      filteredHighways.push_back(ScoredHighway(highway, -llDiff));
-      if (!individual_test) {
-        evaluator.addHighway(highway);
-        initialLL = parameters.getScore();
-        evaluator.saveSnapshotPerFamilyLL();
+                  << highway.dest->label << std::endl;
+    auto params_pre_delta = testHighwayFast(
+      evaluator, highway, optimizer.getHighwaysOutputDir(), 0.01);
+    auto params_post_delta = testHighwayFast(
+      evaluator, highway, optimizer.getHighwaysOutputDir(), 0.011);
+    double llDiff = params_post_delta.getScore() - params_pre_delta.getScore();
+    if (llDiff > 0.0) {
+      auto parameters = optimizeSingleHighway(evaluator, highway, optimizer.getHighwaysOutputDir(), proba);
+      llDiff = parameters.getScore() - initialLL;
+      if (individual_test || (2 * llDiff > log(sample_size))) {
+        Logger::timed << "Accepting candidate: ";
+        highway.proba = parameters[0];
+        filteredHighways.push_back(ScoredHighway(highway, -llDiff));
+        if (!individual_test) {
+          evaluator.addHighway(highway);
+          initialLL = parameters.getScore();
+          evaluator.saveSnapshotPerFamilyLL();
+        }
+      } else {
+        Logger::timed << "Rejecting (BIC) candidate: ";
       }
-    } else {
-      Logger::timed << "Rejecting (BIC) candidate: ";
+    }
+    else {
+        Logger::timed << "Rejecting (noImprov) candidate: ";
     }
     Logger::info << highway.src->label << "->" << highway.dest->label
                  << " ll diff = " << llDiff << " best proba = " << highway.proba
