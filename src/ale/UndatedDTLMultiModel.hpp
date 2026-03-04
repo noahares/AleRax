@@ -221,6 +221,7 @@ template <class REAL> void UndatedDTLMultiModel<REAL>::updateCLV(CID cid) {
         REAL p = REAL();
         ok = computeProbability(cid, speciesNode, c, p);
         assert(ok);
+        scale(p);
         transferSum += p;
         uq[ec] = p;
       }
@@ -674,6 +675,7 @@ bool UndatedDTLMultiModel<REAL>::computeProbability(
   // SL events, DL events and TL events can happen
   // for any of gene nodes:
   // - SL event (only on an internal species branch)
+  scale(proba);
   if (!isSpeciesLeaf) {
     temp = _dtlclvs[cid]._uq[fc] * (_uE[gc] * _PS[ec]);
     scale(temp);

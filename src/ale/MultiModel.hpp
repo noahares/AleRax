@@ -224,6 +224,7 @@ template <class REAL> double MultiModel<REAL>::computeLogLikelihood() {
   for (unsigned int c = 0; c < getGammaCatNumber(); ++c) {
     for (auto speciesNode : this->getPrunedSpeciesNodes()) {
       categoryLikelihoods[c] += getRootCladeLikelihood(speciesNode, c);
+      scale(categoryLikelihoods[c]);
     }
     // condition on survival
     categoryLikelihoods[c] /=
