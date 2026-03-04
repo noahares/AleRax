@@ -15,6 +15,9 @@ struct ScoredHighway {
   bool operator<(const ScoredHighway &other) const {
     return score < other.score;
   }
+  bool operator==(const ScoredHighway &other) const {
+    return highway.src == other.highway.src && highway.dest == other.highway.dest;
+  }
   bool operator==(const Highway &other) const {
     return (highway.src == other.src) && (highway.dest == other.dest);
   }
@@ -36,6 +39,12 @@ public:
                               const std::vector<Highway> &highways,
                               std::vector<ScoredHighway> &candidateHighways);
 
+  static void
+  setFixedHighways(AleOptimizer &optimizer,
+                              std::vector<Highway> &highways,
+                              std::vector<ScoredHighway> &fixedHighways,
+                              const std::string outputDir);
+
   /**
    *  Infer potential highway candidates from the undated reconciliations
    *  by sampling the most frequent transfer directions
@@ -54,7 +63,8 @@ public:
   filterCandidateHighways(AleOptimizer &optimizer,
                           const std::vector<ScoredHighway> &candidateHighways,
                           std::vector<ScoredHighway> &filteredHighways,
-                          unsigned int maxCandidates);
+                          unsigned int maxCandidates,
+                          bool individual_test = false);
 
   /**
    *  Optimize jointly the highway probas of the filtered candidates. Highways
@@ -62,7 +72,7 @@ public:
    */
   static void
   optimizeAllHighways(AleOptimizer &optimizer,
-                      const std::vector<ScoredHighway> &filteredHighways,
-                      std::vector<ScoredHighway> &acceptedHighways,
-                      bool thorough);
+                      std::vector<ScoredHighway> &highways,
+                      bool thorough,
+                      const std::string outputDir);
 };

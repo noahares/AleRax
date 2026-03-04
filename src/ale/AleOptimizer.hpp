@@ -79,8 +79,10 @@ public:
    *  Functions to handle transfer highways
    */
   void inferHighways(const std::string &highwayCandidateFile,
+                     const std::string &highwayFixedFile,
                      unsigned int highwayCandidatesStep1,
-                     unsigned int highwayCandidatesStep2);
+                     unsigned int highwayCandidatesStep2,
+                     const bool highway_individual_test);
   std::string getHighwaysOutputDir() const {
     return FileSystem::joinPaths(_outputDir, "highways");
   }

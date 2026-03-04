@@ -468,7 +468,7 @@ void AleEvaluator::saveSnapshotPerFamilyLL() {
   assert(_snapshotPerFamilyLL.size() == _families.size());
 }
 
-void AleEvaluator::savePerFamilyLikelihoodDiff(const std::string &outputFile) {
+void AleEvaluator::savePerFamilyLikelihoodDiff(const std::string &outputFile, bool flip_sign) {
   std::vector<unsigned int> localIndices;
   std::vector<double> localLikelihoods;
   for (unsigned int i = 0; i < getLocalFamilyNumber(); ++i) {
@@ -488,9 +488,10 @@ void AleEvaluator::savePerFamilyLikelihoodDiff(const std::string &outputFile) {
     std::vector<ScoredFamily> scoredFamilies;
     for (unsigned int i = 0; i < indices.size(); ++i) {
       const auto &family = _families[indices[i]];
-      auto ll = likelihoods[i];
+      auto llDiff = likelihoods[i] - _snapshotPerFamilyLL[i];
+      if (flip_sign) llDiff = -llDiff;
       scoredFamilies.push_back(
-          ScoredFamily(family.name, ll - _snapshotPerFamilyLL[i]));
+          ScoredFamily(family.name, llDiff));
     }
     std::sort(scoredFamilies.begin(), scoredFamilies.end());
     std::ofstream os(outputFile);

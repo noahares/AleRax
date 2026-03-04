@@ -549,15 +549,24 @@ void AleOptimizer::saveBestHighways(
   ParallelContext::barrier();
 }
 
+
 void AleOptimizer::inferHighways(const std::string &highwayCandidateFile,
+                                 const std::string &highwayFixedFile,
                                  unsigned int highwayCandidatesStep1,
-                                 unsigned int highwayCandidatesStep2) {
+                                 unsigned int highwayCandidatesStep2,
+                                 const bool highway_individual_test) {
   // let's infer highways of transfers!
   assert(getCurrentStep() == AleStep::Highways);
   auto highwaysOutputDir = getHighwaysOutputDir();
+  FileSystem::mkdir(highwaysOutputDir, true);
   // Step 1: select initial candidates
   auto candidateHighwayOutput =
       FileSystem::joinPaths(highwaysOutputDir, "candidate_highways.txt");
+  std::vector<ScoredHighway> filteredHighways;
+	  if (highwayFixedFile.size()) {
+	    auto fixed_hws = HighwayCandidateParser::parse(highwayFixedFile, getSpeciesTree().getTree());
+	    Highways::setFixedHighways(*this, fixed_hws, filteredHighways, highwaysOutputDir);
+	  }
   std::vector<ScoredHighway> candidateHighways;
   if (highwayCandidateFile.size()) {
     // the user sets the candidates
@@ -573,15 +582,13 @@ void AleOptimizer::inferHighways(const std::string &highwayCandidateFile,
     Logger::timed << "No candidate highways found!" << std::endl;
     return;
   }
-  FileSystem::mkdir(highwaysOutputDir, true);
   saveBestHighways(candidateHighways, candidateHighwayOutput);
   // Step 2: candidate filtering. We add each highway candidate individually,
   // set a small highway probability and keep the highway if the likelihood
   // improves. We also sort the highways by likelihood and keep the
   // int(highwayCandidatesStep2) best of them
-  std::vector<ScoredHighway> filteredHighways;
   Highways::filterCandidateHighways(*this, candidateHighways, filteredHighways,
-                                    highwayCandidatesStep2);
+                                    highwayCandidatesStep2, highway_individual_test);
   if (!filteredHighways.size()) {
     Logger::timed << "No candidate highways passed the filtering!" << std::endl;
     return;
@@ -589,14 +596,20 @@ void AleOptimizer::inferHighways(const std::string &highwayCandidateFile,
   // Step 3: optimize all the filtered highways together
   auto acceptedHighwayOutput =
       FileSystem::joinPaths(highwaysOutputDir, "accepted_highways.txt");
-  std::vector<ScoredHighway> acceptedHighways;
-  Highways::optimizeAllHighways(*this, filteredHighways, acceptedHighways,
-                                true);
-  assert(acceptedHighways.size()); // there must be some since we can get here
-  saveBestHighways(acceptedHighways, acceptedHighwayOutput);
+  if (!highway_individual_test) {
+    Highways::optimizeAllHighways(*this, filteredHighways,
+                                  true, highwaysOutputDir);
+  } else {
+    for (auto &highway : filteredHighways) {
+        getEvaluator().addHighway(highway.highway);
+    }
+  }
+  assert(filteredHighways.size()); // there must be some since we can get here
+  saveBestHighways(filteredHighways, acceptedHighwayOutput);
   Logger::timed << "Highway output directory: " << highwaysOutputDir
                 << std::endl;
 }
+
 
 void AleOptimizer::saveCheckpoint() {
   if (_info.isDated()) {

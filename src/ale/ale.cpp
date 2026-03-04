@@ -478,8 +478,10 @@ void runTransferHighwayInference(const AleArguments &args,
   Logger::info << std::endl;
   Logger::timed << "Transfer highway inference..." << std::endl;
   speciesTreeOptimizer.inferHighways(args.highwayCandidateFile,
+                                     args.highwayFixedFile,
                                      args.highwayCandidatesStep1,
-                                     args.highwayCandidatesStep2);
+                                     args.highwayCandidatesStep2,
+                                     args.highwayIndividualTest);
 }
 
 void runSecondFinalRateOptimization(const AleArguments &args,

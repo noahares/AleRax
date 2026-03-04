@@ -147,7 +147,7 @@ public:
   void addHighway(const Highway &highway);
   void removeHighway();
   void saveSnapshotPerFamilyLL();
-  void savePerFamilyLikelihoodDiff(const std::string &outputFile);
+  void savePerFamilyLikelihoodDiff(const std::string &outputFile, bool flip_sign = false);
   unsigned int getInputTreesNumber() const;
 
   /**
