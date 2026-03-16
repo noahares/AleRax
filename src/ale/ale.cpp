@@ -470,6 +470,28 @@ void runDateOptimization(const AleArguments &args,
   speciesTreeOptimizer.optimizeDates(true);
 }
 
+void checkUserHighways(const AleArguments &args,
+                       AleOptimizer &speciesTreeOptimizer) {
+	if (args.highwayFixedFile.size()) {
+	  auto fixed_hws = HighwayCandidateParser::parse(
+      args.highwayFixedFile,
+      speciesTreeOptimizer.getSpeciesTree().getTree());
+    Logger::info << "Successfully parsed fixed user highways" << std::endl;
+    for (auto &hw : fixed_hws) {
+      Logger::info << hw << std::endl;
+    }
+	}
+  if (args.highwayCandidateFile.size()) {
+    auto highways = HighwayCandidateParser::parse(
+      args.highwayCandidateFile,
+      speciesTreeOptimizer.getSpeciesTree().getTree());
+    Logger::info << "Successfully parsed candidate user highways" << std::endl;
+    for (auto &hw : highways) {
+      Logger::info << hw << std::endl;
+    }
+  }
+}
+
 void runTransferHighwayInference(const AleArguments &args,
                                  AleOptimizer &speciesTreeOptimizer) {
   if (!args.highways) {
@@ -554,6 +576,9 @@ void run(AleArguments &args) {
       args.speciesTree, families, info, args.modelParametrization,
       args.optimizationClassFile, startingRates, !args.fixRates,
       args.optVerbose, args.output);
+  if (args.highways) {
+    checkUserHighways(args, speciesTreeOptimizer);
+  }
   if (!checkpointDetected) {
     initCheckpoint(args, families, ckpDir);
     speciesTreeOptimizer.setCurrentStep(AleStep::SpeciesTreeOpt);
