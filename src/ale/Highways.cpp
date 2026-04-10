@@ -2,6 +2,7 @@
 
 #include <IO/FileSystem.hpp>
 #include <IO/Logger.hpp>
+#include <numeric>
 #include <optimizers/DTLOptimizer.hpp>
 #include <parallelization/ParallelContext.hpp>
 #include <search/SpeciesTransferSearch.hpp>
@@ -213,7 +214,8 @@ void Highways::getCandidateHighways(
   Logger::timed << "[Highway search] Inferring highways from the predicted "
                 << "transfer directions" << std::endl;
   auto &speciesTree = optimizer.getSpeciesTree();
-  unsigned int minTransfers = 2;
+  unsigned int minTransfers = 200;
+  Logger::info << "Requiring at least " << minTransfers << " transfers from 100 reconcilations" << std::endl;
   MovesBlackList blacklist;
   std::vector<TransferMove> transferMoves;
   SpeciesTransferSearch::getSortedTransferList(
@@ -235,6 +237,27 @@ void Highways::getCandidateHighways(
       distance += 1;
       regraft = regraft->parent;
     }
+    auto &evaluator = optimizer.getEvaluator();
+    auto params = evaluator.getModelParameters();
+    auto minTransRate = params[0].getParameter(highway.src->node_index, 2);
+    for (auto &param : params) {
+      minTransRate = std::min(minTransRate, param.getParameter(highway.src->node_index, 2));
+    }
+    auto numTransferTargets = speciesTree.getTree().getNodeNumber() - 1;
+    if (evaluator.getRecModelInfo().transferConstraint == TransferConstaint::PARENTS) {
+      auto ancestors = speciesTree.getTree().getAncestorssCache(speciesTree.getTree().getNode(highway.src->node_index));
+      numTransferTargets = numTransferTargets - std::accumulate(ancestors.begin(), ancestors.end(), 0);
+    } else if (evaluator.getRecModelInfo().transferConstraint == TransferConstaint::RELDATED) {
+      Logger::info << "Highway heuristic for RELDATED is not available yet" << std::endl;
+    }
+    auto minTransferFactor = 10.0 * minTransRate / static_cast<double>(numTransferTargets);
+    if (transferMove.transfers < minTransferFactor) {
+      Logger::timed << "Rejecting (minTransRate) candidate: "
+                    << highway.src->label << "->" << highway.dest->label
+                    << ", potential highway rate below " << minTransferFactor << std::endl;
+      continue;
+    }
+
     if (distance >= 5 && prune->left != nullptr) {
       candidateHighways.push_back(ScoredHighway(highway, 0.0));
     } else {
@@ -279,17 +302,16 @@ void Highways::filterCandidateHighways(
     bool individual_test) {
   auto &speciesTree = optimizer.getSpeciesTree();
   auto &evaluator = optimizer.getEvaluator();
-  double proba1 = 0.01;  // small hardcoded highway proba
-  double proba2 = 0.1;   // higher hardcoded highway proba
-  double minDiff = 0.01; // min ll increase to keep the candidate
-  auto sampleSize =
-      evaluator.getInputTreesNumber(); // input data size for BIC calculation
+  double minDiff = 1e-5; // min ll increase to keep the candidate
+  const auto BIC_THRESHOLD =
+      log(evaluator.getInputTreesNumber()); // input data size for BIC calculation
   auto testPath = FileSystem::joinPaths(optimizer.getHighwaysOutputDir(),
                                         "candidate_tests");
   FileSystem::mkdir(testPath, true);
   ParallelContext::barrier();
   Logger::timed << "[Highway search] Filtering candidate highways that "
                 << "increase LL by more than " << minDiff << std::endl;
+  Logger::timed << " BIC LL improvement threshold is " << BIC_THRESHOLD << std::endl;
   double initialLL = evaluator.computeLikelihood();
   evaluator.saveSnapshotPerFamilyLL();
   Logger::timed << "initial ll=" << initialLL << std::endl;
@@ -304,7 +326,21 @@ void Highways::filterCandidateHighways(
                     << std::endl;
       continue;
     }
-    auto proba = proba1;
+    auto params = evaluator.getModelParameters();
+    auto minTransRate = params[0].getParameter(highway.src->node_index, 2);
+    for (auto &param : params) {
+      minTransRate = std::min(minTransRate, param.getParameter(highway.src->node_index, 2));
+    }
+    // Test for positive slope at minimum highway rate relative to mininum transfer rate across families
+    auto numTransferTargets = speciesTree.getTree().getNodeNumber() - 1;
+    if (evaluator.getRecModelInfo().transferConstraint == TransferConstaint::PARENTS) {
+      auto ancestors = speciesTree.getTree().getAncestorssCache(speciesTree.getTree().getNode(highway.src->node_index));
+      numTransferTargets = numTransferTargets - std::accumulate(ancestors.begin(), ancestors.end(), 0);
+    } else if (evaluator.getRecModelInfo().transferConstraint == TransferConstaint::RELDATED) {
+      Logger::info << "Highway heuristic for RELDATED is not available yet" << std::endl;
+    }
+    auto minHighwayRate = 10.0 * minTransRate / static_cast<double>(numTransferTargets);
+    auto proba = minHighwayRate;
     Logger::timed << "Testing candidate: " << highway.src->label << "->"
                   << highway.dest->label << " with highway proba p=" << proba
                   << std::endl;
@@ -313,24 +349,26 @@ void Highways::filterCandidateHighways(
     // per-family LLs to a file; remove the highway
     double withHighwayLL = testHighwayFast(evaluator, highway, testPath, proba);
     double llDiff = withHighwayLL - initialLL;
-    if (llDiff < minDiff) {
-      proba = proba2;
-      Logger::timed << "  No improvement with the small highway proba! Trying "
+    double slope = -1e-7;
+    if (llDiff > minDiff) {
+      proba = proba + proba * 1e-5;
+      Logger::timed << "  Checking for positive slope with delta "
                     << "again with p=" << proba << std::endl;
       // ditto, but with higher highway proba
-      withHighwayLL = testHighwayFast(evaluator, highway, testPath, proba);
-      llDiff = withHighwayLL - initialLL;
+      double withHighwayLLDelta = testHighwayFast(evaluator, highway, testPath, proba);
+      llDiff = withHighwayLLDelta - initialLL;
+      slope = withHighwayLLDelta - withHighwayLL;
     }
     // reject the highway if adding it hasn't increased the LL significantly
-    if (llDiff >= minDiff) {
+    if (llDiff >= minDiff && slope >= 0.0) {
       // optimize the highway proba
       auto bestParameters =
           optimizeSingleHighwayProba(evaluator, highway, proba);
       highway.proba = bestParameters[0];
       withHighwayLL = bestParameters.getScore();
       llDiff = withHighwayLL - initialLL;
-      // if BIC < 0, accept the highway and add it to the recmodel for a while
-      if (2.0 * llDiff > log(sampleSize)) {
+      // if BIC with additional highway parameter is larger, accept the highway and add it to the recmodel for a while
+      if (llDiff > BIC_THRESHOLD) {
         Logger::timed << "  Accepting the candidate: ";
         filteredHighways.push_back(ScoredHighway(highway, llDiff));
         evaluator.addHighway(highway);

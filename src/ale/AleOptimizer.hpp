@@ -119,6 +119,9 @@ public:
   unsigned int getLocalFamilyNumber() const {
     return _geneTrees.getTrees().size();
   }
+  unsigned int getFamilyNumber() const {
+    return _families.size();
+  }
   const RecModelInfo &getRecModelInfo() const { return _info; }
   AleEvaluator &getEvaluator() { return *_evaluator; }
 

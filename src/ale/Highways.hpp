@@ -1,5 +1,6 @@
 #pragma once
 
+#include "search/SpeciesTransferSearch.hpp"
 #include <vector>
 
 #include <IO/HighwayCandidateParser.hpp>

@@ -425,13 +425,14 @@ void AleEvaluator::getTransferInformation(
     // the random state inconsistent between the MPI ranks.
     // Call ParallelContext::makeRandConsistent() right after
     // all MPI ranks passed the loop
-    bool ok = evaluation.sampleReconciliations(1, scenarios);
+    bool ok = evaluation.sampleReconciliations(100, scenarios);
     assert(ok);
-    assert(scenarios.size() == 1);
-    auto &scenario = *scenarios[0];
-    scenario.countTransfers(labelToId, transferFrequencies.count);
-    scenario.gatherReconciliationStatistics(perSpeciesEvents);
-    potentialTransfers.addScenario(scenario);
+    assert(scenarios.size() == 100);
+    for (const auto &scenario : scenarios) {
+      scenario->countTransfers(labelToId, transferFrequencies.count);
+      scenario->gatherReconciliationStatistics(perSpeciesEvents);
+      potentialTransfers.addScenario(*scenario);
+    }
   }
   ParallelContext::barrier();
   ParallelContext::makeRandConsistent();
