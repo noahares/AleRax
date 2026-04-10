@@ -360,7 +360,7 @@ void Highways::filterCandidateHighways(
       slope = withHighwayLLDelta - withHighwayLL;
     }
     // reject the highway if adding it hasn't increased the LL significantly
-    if (llDiff >= minDiff && slope >= 0.0) {
+    if (llDiff >= minDiff && (llDiff > BIC_THRESHOLD || slope >= 0.0)) {
       // optimize the highway proba
       auto bestParameters =
           optimizeSingleHighwayProba(evaluator, highway, proba);
