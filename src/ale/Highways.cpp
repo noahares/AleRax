@@ -412,7 +412,7 @@ void Highways::optimizeAllHighways(AleOptimizer &optimizer,
     startingProbas.addValue(candidate.highway.proba);
   }
   auto bestParameters = optimizeHighwayProbas(evaluator, highways,
-                                              startingProbas, true, thorough, false, outputDir);
+                                              startingProbas, true, thorough, true, outputDir);
   Logger::timed << "[Highway search] After highway proba opt, probas and ll:\n"
                 << bestParameters << std::endl;
   // keep only the highways with optimized proba no less than minProba and
