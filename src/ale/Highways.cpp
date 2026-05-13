@@ -2,6 +2,7 @@
 
 #include <IO/FileSystem.hpp>
 #include <IO/Logger.hpp>
+#include <fstream>
 #include <numeric>
 #include <optimizers/DTLOptimizer.hpp>
 #include <parallelization/ParallelContext.hpp>
@@ -221,6 +222,9 @@ void Highways::getCandidateHighways(
   SpeciesTransferSearch::getSortedTransferList(
       speciesTree, optimizer.getEvaluator(), minTransfers, blacklist,
       transferMoves);
+  const auto fullCandidatePath = FileSystem::joinPaths(optimizer.getHighwaysOutputDir(), "all_candidates.txt");
+  std::ofstream os(fullCandidatePath);
+  os << "donor, recipient, transfer_score" << std::endl;
   for (const auto &transferMove : transferMoves) {
     // src species (potential branch to regraft to in a species tree search)
     auto regraft = speciesTree.getNode(transferMove.regraft);
@@ -260,6 +264,7 @@ void Highways::getCandidateHighways(
 
     if (distance >= 5 && prune->left != nullptr) {
       candidateHighways.push_back(ScoredHighway(highway, 0.0));
+      os << highway.src->label << ", " << highway.dest->label << ", " << transferMove.transfers << std::endl;
     } else {
       Logger::timed << "Rejecting (speciesDist) candidate: "
                     << highway.src->label << "->" << highway.dest->label
@@ -404,6 +409,8 @@ void Highways::optimizeAllHighways(AleOptimizer &optimizer,
   auto &evaluator = optimizer.getEvaluator();
   auto testPath = FileSystem::joinPaths(outputDir,
                                         "ll_contributions");
+FileSystem::mkdir(testPath, true);
+
   double minProba =
       0.000001; // min highway proba after optimization to keep the candidate
   Logger::timed << "[Highway search] Trying to add all candidate highways "
