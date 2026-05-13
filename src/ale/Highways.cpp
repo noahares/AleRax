@@ -55,7 +55,7 @@ public:
 	      Logger::info << "LL diff from highway " << scoredHighways[i].highway << ": " << lldiff << std::endl;
 	      std::string out = FileSystem::joinPaths(
 	        outputDir,
-	        std::string("fixed_transferll_") + std::string(scoredHighways[i].highway.src->label) +
+	        std::string("transferll_") + std::string(scoredHighways[i].highway.src->label) +
 	        std::string("_") + std::string(scoredHighways[i].highway.dest->label) + std::string("_") + std::to_string(parameters[i]));
 	      _evaluator.savePerFamilyLikelihoodDiff(out, true);
 	      for (auto highway : _highways) {
@@ -402,6 +402,8 @@ void Highways::optimizeAllHighways(AleOptimizer &optimizer,
                                    bool thorough,
                                    const std::string outputDir) {
   auto &evaluator = optimizer.getEvaluator();
+  auto testPath = FileSystem::joinPaths(outputDir,
+                                        "ll_contributions");
   double minProba =
       0.000001; // min highway proba after optimization to keep the candidate
   Logger::timed << "[Highway search] Trying to add all candidate highways "
@@ -412,7 +414,7 @@ void Highways::optimizeAllHighways(AleOptimizer &optimizer,
     startingProbas.addValue(candidate.highway.proba);
   }
   auto bestParameters = optimizeHighwayProbas(evaluator, highways,
-                                              startingProbas, true, thorough, true, outputDir);
+                                              startingProbas, true, thorough, true, testPath);
   Logger::timed << "[Highway search] After highway proba opt, probas and ll:\n"
                 << bestParameters << std::endl;
   // keep only the highways with optimized proba no less than minProba and
