@@ -123,7 +123,7 @@ static Parameters optimizeSingleHighwayProba(AleEvaluator &evaluator,
   OptimizationSettings settings;
   settings.verbose = evaluator.isVerbose();
   settings.strategy = RecOpt::LBFGSB;
-  settings.factr = LBFGSBPrecision::MEDIUM;
+  settings.factr = LBFGSBPrecision::LOW;
   ParallelContext::barrier();
   auto bestParameters = DTLOptimizer::optimizeParameters(
       function, startingHighwayProbas, settings);
@@ -147,7 +147,7 @@ static Parameters optimizeHighwayProbas(AleEvaluator &evaluator,
     settings.strategy = evaluator.getRecModelInfo().recOpt;
     settings.minAlpha = 0.001;
     settings.epsilon = 0.000001;
-    settings.factr = LBFGSBPrecision::MEDIUM;
+    settings.factr = LBFGSBPrecision::LOW;
     if (thorough) {
       settings.individualParamOpt = true;
       settings.individualParamOptMinImprovement = 10000.0;
@@ -409,7 +409,7 @@ void Highways::optimizeAllHighways(AleOptimizer &optimizer,
   auto &evaluator = optimizer.getEvaluator();
   auto testPath = FileSystem::joinPaths(outputDir,
                                         "ll_contributions");
-FileSystem::mkdir(testPath, true);
+  FileSystem::mkdir(testPath, true);
 
   double minProba =
       0.000001; // min highway proba after optimization to keep the candidate

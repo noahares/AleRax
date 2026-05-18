@@ -279,7 +279,7 @@ double AleEvaluator::optimizeModelRates(bool thorough) {
       settings.startingAlpha = 0.01;
     }
     settings.optimizationMinImprovement = settings.lineSearchMinImprovement;
-    settings.factr = LBFGSBPrecision::MEDIUM;
+    settings.factr = LBFGSBPrecision::LOW;
     if (_info.perFamilyRates) {
       Logger::timed << "[Species search]   Free parameters: "
                     << _optimizationClasses.getFreeParameters() << " per family"
