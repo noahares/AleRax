@@ -428,7 +428,6 @@ void AleOptimizer::reconcile(unsigned int samples) {
   const auto &localFamilies = _geneTrees.getTrees();
   std::vector<std::string> summaryPerSpeciesEventCountsFiles;
   std::vector<std::string> summaryTransferFiles;
-  std::vector<std::shared_ptr<Scenario>> allScenarios;
   MatrixDouble perHighwayPerFamTransfers;
   const auto &highways = getTransferHighways();
   if (highways.size() && localFamilies.size()) {
@@ -436,6 +435,14 @@ void AleOptimizer::reconcile(unsigned int samples) {
     perHighwayPerFamTransfers =
         MatrixDouble(highways.size(), VectorDouble(localFamilies.size(), 0.0));
   }
+
+  const auto labelToId = getSpeciesTree().getTree().getDeterministicLabelToId();
+  const unsigned int N = labelToId.size();
+  const VectorUint zeros(N, 0);
+  auto countMatrix = MatrixUint(N, zeros);
+  std::vector<unsigned int> fromS(N, 0);
+  std::vector<unsigned int> fromSButL(N, 0);
+
   for (unsigned int i = 0; i < localFamilies.size(); ++i) {
     std::vector<std::string> perSpeciesEventCountsFiles;
     std::vector<std::string> transferFiles;
@@ -446,7 +453,6 @@ void AleOptimizer::reconcile(unsigned int samples) {
     // Call ParallelContext::makeRandConsistent() right after
     // all MPI ranks passed the loop
     _evaluator->sampleFamilyScenarios(i, samples, scenarios);
-    allScenarios.insert(allScenarios.end(), scenarios.begin(), scenarios.end());
     assert(scenarios.size() == samples);
     // writing in the reconciliations/all/ dir
     auto geneTreesPath = FileSystem::joinPaths(
@@ -479,6 +485,8 @@ void AleOptimizer::reconcile(unsigned int samples) {
       scenario.saveEventsCounts(eventCountsFile, false);
       scenario.savePerSpeciesEventsCounts(perSpeciesEventCountsFile, false);
       scenario.saveTransfers(transferFile, false);
+      scenario.countOrigins(labelToId, fromS, fromSButL, countMatrix);
+
       for (unsigned int hi = 0; hi < highways.size(); ++hi) {
         perHighwayPerFamTransfers[hi][i] += scenario.countTransfer(
             highways[hi].src->label, highways[hi].dest->label);
@@ -516,7 +524,7 @@ void AleOptimizer::reconcile(unsigned int samples) {
       getSpeciesTree().getTree(), totalPerSpeciesEventCountsFile,
       summaryPerSpeciesEventCountsFiles, true, false);
   // export origins
-  Scenario::saveOriginsGlobal(getSpeciesTree().getTree(), allScenarios, samples,
+  Scenario::saveOriginsGlobal(getSpeciesTree().getTree(), fromS, fromSButL, countMatrix, samples,
                               originsDir);
   // export total pairwise transfer counts
   auto totalTransferFile = FileSystem::joinPaths(recDir, "totalTransfers.txt");
