@@ -461,30 +461,33 @@ void AleOptimizer::reconcile(unsigned int samples) {
     auto geneTreesAlePath = FileSystem::joinPaths(
         allRecDir, localFamilies[i].name + "_samples.alerec");
     ParallelOfstream geneTreesAleOs(geneTreesAlePath, false);
+    auto eventCountsFile = FileSystem::joinPaths(
+        allRecDir, localFamilies[i].name + "_eventCounts.tsv");
+    ParallelOfstream eventCountsOs(eventCountsFile, false);
+    Scenario::saveEventsHeader(eventCountsOs);
+    auto familyPerSpeciesEventCountsFile = FileSystem::joinPaths(
+        allRecDir, localFamilies[i].name + "_speciesEventCounts.tsv");
+    ParallelOfstream perSpeciesEventCountsOs(familyPerSpeciesEventCountsFile, false);
+    Scenario::dumpSpeciesToEventCountHeader(perSpeciesEventCountsOs);
+    perSpeciesEventCountsFiles.push_back(familyPerSpeciesEventCountsFile);
+    auto familyTransferFile = FileSystem::joinPaths(
+        allRecDir, localFamilies[i].name + "_transfers.tsv");
+    ParallelOfstream transferOs(familyTransferFile, false);
+    Scenario::saveTransferHeader(transferOs);
+    transferFiles.push_back(familyTransferFile);
     for (unsigned int sample = 0; sample < samples; ++sample) {
       auto geneTreeXMLPath =
           FileSystem::joinPaths(allRecDir, localFamilies[i].name + "_sample_" +
                                                std::to_string(sample) + ".xml");
-      auto eventCountsFile = FileSystem::joinPaths(
-          allRecDir, localFamilies[i].name + "_eventCounts_" +
-                         std::to_string(sample) + ".txt");
-      auto perSpeciesEventCountsFile = FileSystem::joinPaths(
-          allRecDir, localFamilies[i].name + "_speciesEventCounts_" +
-                         std::to_string(sample) + ".txt");
-      auto transferFile = FileSystem::joinPaths(
-          allRecDir, localFamilies[i].name + "_transfers_" +
-                         std::to_string(sample) + ".txt");
-      perSpeciesEventCountsFiles.push_back(perSpeciesEventCountsFile);
-      transferFiles.push_back(transferFile);
       auto &scenario = *scenarios[sample];
       scenario.saveReconciliation(geneTreesOs,
                                   ReconciliationFormat::NewickEvents);
       scenario.saveReconciliation(geneTreesAleOs, ReconciliationFormat::ALE);
       scenario.saveReconciliation(geneTreeXMLPath,
                                   ReconciliationFormat::RecPhyloXML, false);
-      scenario.saveEventsCounts(eventCountsFile, false);
-      scenario.savePerSpeciesEventsCounts(perSpeciesEventCountsFile, false);
-      scenario.saveTransfers(transferFile, false);
+      scenario.saveEventsCounts(eventCountsOs, sample);
+      scenario.savePerSpeciesEventsCounts(perSpeciesEventCountsOs, sample);
+      scenario.saveTransfers(transferOs, sample);
       scenario.countOrigins(labelToId, fromS, fromSButL, countMatrix);
 
       for (unsigned int hi = 0; hi < highways.size(); ++hi) {
@@ -497,20 +500,23 @@ void AleOptimizer::reconcile(unsigned int samples) {
     }
     geneTreesOs.close();
     geneTreesAleOs.close();
+    eventCountsOs.close();
+    perSpeciesEventCountsOs.close();
+    transferOs.close();
     // writing in the reconciliations/summaries/ dir
     auto consensusFile = FileSystem::joinPaths(
         summariesDir, localFamilies[i].name + "_consensus_50.newick");
     saveGeneConsensusTree(geneTreesPath, consensusFile);
     auto perSpeciesEventCountsFile = FileSystem::joinPaths(
-        summariesDir, localFamilies[i].name + "_meanSpeciesEventCounts.txt");
+        summariesDir, localFamilies[i].name + "_meanSpeciesEventCounts.tsv");
     Scenario::mergePerSpeciesEventCounts(
         getSpeciesTree().getTree(), perSpeciesEventCountsFile,
-        perSpeciesEventCountsFiles, false, true);
+        perSpeciesEventCountsFiles, samples, false, true, true);
     summaryPerSpeciesEventCountsFiles.push_back(perSpeciesEventCountsFile);
     auto transferFile = FileSystem::joinPaths(
-        summariesDir, localFamilies[i].name + "_meanTransfers.txt");
+        summariesDir, localFamilies[i].name + "_meanTransfers.tsv");
     Scenario::mergeTransfers(getSpeciesTree().getTree(), transferFile,
-                             transferFiles, false, true);
+                             transferFiles, samples, false, true, true);
     summaryTransferFiles.push_back(transferFile);
   }
   ParallelContext::barrier();
@@ -519,17 +525,17 @@ void AleOptimizer::reconcile(unsigned int samples) {
                 << std::endl;
   // export total per-branch event counts
   auto totalPerSpeciesEventCountsFile =
-      FileSystem::joinPaths(recDir, "totalSpeciesEventCounts.txt");
+      FileSystem::joinPaths(recDir, "totalSpeciesEventCounts.tsv");
   Scenario::mergePerSpeciesEventCounts(
       getSpeciesTree().getTree(), totalPerSpeciesEventCountsFile,
-      summaryPerSpeciesEventCountsFiles, true, false);
+      summaryPerSpeciesEventCountsFiles, 1, true, false);
   // export origins
   Scenario::saveOriginsGlobal(getSpeciesTree().getTree(), fromS, fromSButL, countMatrix, samples,
                               originsDir);
   // export total pairwise transfer counts
-  auto totalTransferFile = FileSystem::joinPaths(recDir, "totalTransfers.txt");
+  auto totalTransferFile = FileSystem::joinPaths(recDir, "totalTransfers.tsv");
   Scenario::mergeTransfers(getSpeciesTree().getTree(), totalTransferFile,
-                           summaryTransferFiles, true, false);
+                           summaryTransferFiles, 1, true, false);
   // export highway information
   for (unsigned int hi = 0; hi < highways.size(); ++hi) {
     saveFamiliesTakingHighway(highways[hi], perHighwayPerFamTransfers[hi],
