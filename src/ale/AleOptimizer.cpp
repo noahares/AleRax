@@ -265,7 +265,7 @@ void AleOptimizer::saveSpeciesRootSupports() {
 void AleOptimizer::saveRatesAndLL() {
   // save per-family likelihoods
   auto perFamilyLikelihoodPath =
-      FileSystem::joinPaths(_outputDir, "per_fam_likelihoods.txt");
+      FileSystem::joinPaths(_outputDir, "per_fam_likelihoods.tsv");
   std::vector<unsigned int> localIndices;
   std::vector<double> localLikelihoods;
   for (unsigned int i = 0; i < getLocalFamilyNumber(); ++i) {
@@ -289,8 +289,9 @@ void AleOptimizer::saveRatesAndLL() {
     }
     std::sort(familiesAndLLs.begin(), familiesAndLLs.end());
     std::ofstream llOs(perFamilyLikelihoodPath);
+    llOs << "family\tll" << std::endl;
     for (const auto &sf : familiesAndLLs) {
-      llOs << sf.familyName << " " << sf.score << std::endl;
+      llOs << sf.familyName << "\t" << sf.score << std::endl;
     }
     llOs.close();
   }
@@ -304,31 +305,29 @@ void AleOptimizer::saveRatesAndLL() {
   if (_info.perFamilyRates) {
     for (unsigned int i = 0; i < getLocalFamilyNumber(); ++i) {
       auto familyRatesPath = FileSystem::joinPaths(
-          ratesDir, _geneTrees.getTrees()[i].name + "_rates.txt");
+          ratesDir, _geneTrees.getTrees()[i].name + "_rates.tsv");
       std::ofstream ratesOs(familyRatesPath);
       for (const auto &name : parameterNames) {
         if (name != parameterNames[0])
-          ratesOs << " ";
-        ratesOs << name;
+          ratesOs << "\t" << name;
       }
       ratesOs << std::endl;
       const auto &parameters = getModelParameters()[i];
       assert(parameters.getParamTypeNumber() == parameterNames.size());
       for (unsigned int rate = 0; rate < parameterNames.size(); ++rate) {
         if (rate != 0)
-          ratesOs << " ";
-        ratesOs << parameters.getParameter(0, rate);
+          ratesOs << "\t" << parameters.getParameter(0, rate);
       }
       ratesOs << std::endl;
       ratesOs.close();
     }
   } else {
     auto globalRatesPath =
-        FileSystem::joinPaths(ratesDir, "model_parameters.txt");
+        FileSystem::joinPaths(ratesDir, "model_parameters.tsv");
     ParallelOfstream ratesOs(globalRatesPath, true);
     ratesOs << "node";
     for (const auto &name : parameterNames) {
-      ratesOs << " " << name;
+      ratesOs << "\t" << name;
     }
     ratesOs << std::endl;
     const auto &parameters = getModelParameters()[0];
@@ -336,7 +335,7 @@ void AleOptimizer::saveRatesAndLL() {
     for (auto node : getSpeciesTree().getTree().getNodes()) {
       ratesOs << node->label;
       for (unsigned int rate = 0; rate < parameterNames.size(); ++rate) {
-        ratesOs << " " << parameters.getParameter(node->node_index, rate);
+        ratesOs << "\t" << parameters.getParameter(node->node_index, rate);
       }
       ratesOs << std::endl;
     }
@@ -387,14 +386,14 @@ void AleOptimizer::saveFamiliesTakingHighway(
     std::sort(scoredFamilies.rbegin(), scoredFamilies.rend());
     auto outputFile = FileSystem::joinPaths(
         directory, std::string("highway_") + highway.src->label + "_to_" +
-                       highway.dest->label + ".txt");
+                       highway.dest->label + ".tsv");
     std::ofstream os(outputFile);
-    os << "fam, transfers" << std::endl;
+    os << "family\ttransfers" << std::endl;
     for (const auto &sf : scoredFamilies) {
       if (sf.score == 0.0) {
         break;
       }
-      os << sf.familyName << ", " << sf.score << std::endl;
+      os << sf.familyName << "\t" << sf.score << std::endl;
     }
     os.close();
   }
@@ -473,6 +472,7 @@ void AleOptimizer::reconcile(unsigned int samples) {
     auto familyTransferFile = FileSystem::joinPaths(
         allRecDir, localFamilies[i].name + "_transfers.tsv");
     ParallelOfstream transferOs(familyTransferFile, false);
+    transferOs << "sample\t";
     Scenario::saveTransferHeader(transferOs);
     transferFiles.push_back(familyTransferFile);
     for (unsigned int sample = 0; sample < samples; ++sample) {
@@ -551,11 +551,11 @@ void AleOptimizer::saveBestHighways(
   // Logger::info << "save highways to " << outputFile << std::endl;
   assert(scoredHighways.size());
   ParallelOfstream os(outputFile, true);
-  os << "src, dest, proba, llDiff" << std::endl;
+  os << "src\tdest\trate\tllDiff" << std::endl;
   for (const auto &scoredHighway : scoredHighways) {
-    os << scoredHighway.highway.src->label << ", "
-       << scoredHighway.highway.dest->label << ", "
-       << scoredHighway.highway.proba << ", " << scoredHighway.score
+    os << scoredHighway.highway.src->label << "\t"
+       << scoredHighway.highway.dest->label << "\t"
+       << scoredHighway.highway.proba << "\t" << scoredHighway.score
        << std::endl;
   }
   os.close();
@@ -570,7 +570,7 @@ void AleOptimizer::inferHighways(const std::string &highwayCandidateFile,
   auto highwaysOutputDir = getHighwaysOutputDir();
   // Step 1: select initial candidates
   auto candidateHighwayOutput =
-      FileSystem::joinPaths(highwaysOutputDir, "candidate_highways.txt");
+      FileSystem::joinPaths(highwaysOutputDir, "candidate_highways.tsv");
   std::vector<ScoredHighway> candidateHighways;
   if (highwayCandidateFile.size()) {
     // the user sets the candidates
@@ -601,7 +601,7 @@ void AleOptimizer::inferHighways(const std::string &highwayCandidateFile,
   }
   // Step 3: optimize all the filtered highways together
   auto acceptedHighwayOutput =
-      FileSystem::joinPaths(highwaysOutputDir, "accepted_highways.txt");
+      FileSystem::joinPaths(highwaysOutputDir, "accepted_highways.tsv");
   std::vector<ScoredHighway> acceptedHighways;
   Highways::optimizeAllHighways(*this, filteredHighways, acceptedHighways,
                                 true);
