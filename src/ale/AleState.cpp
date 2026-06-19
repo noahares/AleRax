@@ -95,9 +95,10 @@ void AleState::filterCheckpointFamilies(Families &families,
 }
 
 void AleState::serialize(const std::string &checkpointDir) const {
+  std::string _checkpointDir = currentStep == AleStep::Highways ? checkpointDir + "_pre_highways" : checkpointDir;
   ParallelContext::barrier();
   auto checkpointPath =
-      FileSystem::joinPaths(checkpointDir, "mainCheckpoint.txt");
+      FileSystem::joinPaths(_checkpointDir, "mainCheckpoint.txt");
   ParallelOfstream os(checkpointPath, true);
   // current step
   os << static_cast<unsigned int>(currentStep) << std::endl;
@@ -122,7 +123,7 @@ void AleState::serialize(const std::string &checkpointDir) const {
     const auto &mp = perLocalFamilyModelParams[f];
     auto paramTypeNumber = mp.getParamTypeNumber();
     auto speciesBranchNumber = mp.getSpeciesBranchNumber();
-    auto paramPath = FileSystem::joinPaths(checkpointDir, family + ".txt");
+    auto paramPath = FileSystem::joinPaths(_checkpointDir, family + ".txt");
     std::ofstream os(paramPath);
     os << paramTypeNumber << " " << speciesBranchNumber << std::endl;
     for (unsigned int e = 0; e < speciesBranchNumber; ++e) {

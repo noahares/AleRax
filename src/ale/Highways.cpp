@@ -52,7 +52,7 @@ public:
 	        }
 	      auto new_ll = _evaluator.computeLikelihood();
 	      auto lldiff = initial_ll - new_ll;
-	      // scoredHighways[i].scoreDiff = lldiff;
+	      scoredHighways[i].score = lldiff;
 	      Logger::info << "LL diff from highway " << scoredHighways[i].highway << ": " << lldiff << std::endl;
 	      std::string out = FileSystem::joinPaths(
 	        outputDir,

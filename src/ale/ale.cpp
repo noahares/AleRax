@@ -600,6 +600,7 @@ void run(AleArguments &args) {
   if (speciesTreeOptimizer.getCurrentStep() <= AleStep::RelDating) {
     runDateOptimization(args, speciesTreeOptimizer);
     speciesTreeOptimizer.setCurrentStep(AleStep::Highways);
+    FileSystem::mkdir(speciesTreeOptimizer.getCheckpointDir(args.output) + "_pre_highways", true);
     speciesTreeOptimizer.saveCheckpoint();
   }
   // highway search on the final species tree topology
