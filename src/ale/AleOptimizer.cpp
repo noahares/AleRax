@@ -612,10 +612,6 @@ void AleOptimizer::inferHighways(const std::string &highwayCandidateFile,
   if (!highway_individual_test) {
     Highways::optimizeAllHighways(*this, filteredHighways,
                                   true, highwaysOutputDir);
-  } else {
-    for (auto &highway : filteredHighways) {
-        getEvaluator().addHighway(highway.highway);
-    }
   }
   assert(filteredHighways.size()); // there must be some since we can get here
   saveBestHighways(filteredHighways, acceptedHighwayOutput);

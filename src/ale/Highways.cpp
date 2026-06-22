@@ -10,6 +10,7 @@
 #include <optimizers/DTLOptimizer.hpp>
 #include <parallelization/ParallelContext.hpp>
 #include <search/SpeciesTransferSearch.hpp>
+#include <string>
 
 class HighwayProbasOptimizer : public FunctionToOptimize {
 public:
@@ -60,7 +61,7 @@ public:
 	      std::string out = FileSystem::joinPaths(
 	        outputDir,
 	        std::string("transferll_") + std::string(scoredHighways[i].highway.src->label) +
-	        std::string("_") + std::string(scoredHighways[i].highway.dest->label) + std::string("_") + std::to_string(parameters[i]));
+	        std::string("_") + std::string(scoredHighways[i].highway.dest->label) + std::string("_") + std::to_string(parameters[i]) + std::string(".tsv"));
 	      _evaluator.savePerFamilyLikelihoodDiff(out, true);
 	      for (auto highway : _highways) {
 	        (void)(highway);
@@ -101,16 +102,18 @@ static bool isHighwayCompatible(const Highway &highway,
 }
 
 static double testHighwayFast(AleEvaluator &evaluator, const Highway &highway,
-                              const std::string &directory,
-                              double highwayProba) {
+                              double highwayProba, bool print,
+                              const std::string &directory = "") {
   auto highwayCopy = highway;
   highwayCopy.proba = highwayProba;
   evaluator.addHighway(highwayCopy);
   double ll = evaluator.computeLikelihood();
-  auto out = FileSystem::joinPaths(directory, std::string("transferll_") +
-                                                  highway.src->label + "_to_" +
-                                                  highway.dest->label + ".tsv");
-  evaluator.savePerFamilyLikelihoodDiff(out);
+  if (print) {
+    auto out = FileSystem::joinPaths(directory, std::string("transferll_") +
+                                                    highway.src->label + "_to_" +
+                                                    highway.dest->label + "_" + std::to_string(highwayProba) + ".tsv");
+    evaluator.savePerFamilyLikelihoodDiff(out);
+  }
   evaluator.removeHighway();
   return ll;
 }
@@ -130,7 +133,6 @@ static Parameters optimizeSingleHighwayProba(AleEvaluator &evaluator,
   ParallelContext::barrier();
   auto bestParameters = DTLOptimizer::optimizeParameters(
       function, startingHighwayProbas, settings);
-  // function.evaluatePrint(bestParameters, true, highwaysOutputDir);
   return bestParameters;
 }
 
@@ -144,6 +146,7 @@ static Parameters optimizeHighwayProbas(AleEvaluator &evaluator,
 	    highways.push_back(highway.highway);
 	  }
   HighwayProbasOptimizer function(evaluator, highways);
+  auto bestParameters = startingHighwayProbas;
   if (optimize) {
     OptimizationSettings settings;
     settings.verbose = evaluator.isVerbose();
@@ -156,18 +159,16 @@ static Parameters optimizeHighwayProbas(AleEvaluator &evaluator,
       settings.individualParamOptMinImprovement = 10000.0;
     }
     ParallelContext::barrier();
-    auto bestParameters = DTLOptimizer::optimizeParameters(
+    bestParameters = DTLOptimizer::optimizeParameters(
         function, startingHighwayProbas, settings);
-    if (individual_contribution) {
-      function.printIndividualContribution(bestParameters, outputDir, scoredHighways);
-    }
-    return bestParameters;
   } else {
     // like testHighwayFast, but for several highways
-    auto parameters = startingHighwayProbas;
-    function.evaluate(parameters);
-    return parameters;
+    function.evaluate(bestParameters);
   }
+  if (individual_contribution) {
+    function.printIndividualContribution(bestParameters, outputDir, scoredHighways);
+  }
+  return bestParameters;
 }
 
 static bool compareHighwaysByProba(const ScoredHighway &a,
@@ -355,7 +356,7 @@ void Highways::filterCandidateHighways(
     // add the highway to test;
     // compute the new total LL after adding the highway and save the new
     // per-family LLs to a file; remove the highway
-    double withHighwayLL = testHighwayFast(evaluator, highway, testPath, proba);
+    double withHighwayLL = testHighwayFast(evaluator, highway, proba, false);
     double llDiff = withHighwayLL - initialLL;
     double slope = -1e-7;
     if (llDiff > minDiff) {
@@ -363,7 +364,7 @@ void Highways::filterCandidateHighways(
       Logger::timed << "  Checking for positive slope with delta "
                     << "again with p=" << proba << std::endl;
       // ditto, but with higher highway proba
-      double withHighwayLLDelta = testHighwayFast(evaluator, highway, testPath, proba);
+      double withHighwayLLDelta = testHighwayFast(evaluator, highway, proba, false);
       llDiff = withHighwayLLDelta - initialLL;
       slope = withHighwayLLDelta - withHighwayLL;
     }
@@ -379,9 +380,12 @@ void Highways::filterCandidateHighways(
       if (llDiff > BIC_THRESHOLD) {
         Logger::timed << "  Accepting the candidate: ";
         filteredHighways.push_back(ScoredHighway(highway, llDiff));
-        evaluator.addHighway(highway);
-        initialLL = bestParameters.getScore();
-        evaluator.saveSnapshotPerFamilyLL();
+        testHighwayFast(evaluator, highway, highway.proba, true, testPath);
+        if (!individual_test) {
+          evaluator.addHighway(highway);
+          initialLL = bestParameters.getScore();
+          evaluator.saveSnapshotPerFamilyLL();
+        }
       } else {
         Logger::timed << "  Rejecting (BIC) the candidate: ";
       }
@@ -392,17 +396,20 @@ void Highways::filterCandidateHighways(
                  << std::endl;
   }
   // remove all the temporarily added highways from the recmodel
-  for (const auto &candidate : filteredHighways) {
-    (void)(candidate);
-    evaluator.removeHighway();
-  }
-  // keep only the highways resulting in higher LL increase
+  if (!individual_test) {
+    for (const auto &candidate : filteredHighways) {
+      (void)(candidate);
+      evaluator.removeHighway();
+    }
+  }  // keep only the highways resulting in higher LL increase
   std::sort(filteredHighways.rbegin(), filteredHighways.rend());
-  filteredHighways.resize(
-      std::min(filteredHighways.size(), size_t(maxCandidates)));
-  Logger::timed << "[Highway search] After keeping at most " << maxCandidates
-                << " accepted candidates: " << filteredHighways.size()
-                << " highways kept" << std::endl;
+  if (!individual_test) {
+    filteredHighways.resize(
+        std::min(filteredHighways.size(), size_t(maxCandidates)));
+    Logger::timed << "[Highway search] After keeping at most " << maxCandidates
+                  << " accepted candidates: " << filteredHighways.size()
+                  << " highways kept" << std::endl;
+  }
 }
 
 void Highways::optimizeAllHighways(AleOptimizer &optimizer,
