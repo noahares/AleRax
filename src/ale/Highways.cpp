@@ -1,5 +1,8 @@
 #include "AleOptimizer.hpp"
 
+#include <algorithm>
+#include <cassert>
+
 #include <IO/FileSystem.hpp>
 #include <IO/Logger.hpp>
 #include <fstream>
@@ -106,7 +109,7 @@ static double testHighwayFast(AleEvaluator &evaluator, const Highway &highway,
   double ll = evaluator.computeLikelihood();
   auto out = FileSystem::joinPaths(directory, std::string("transferll_") +
                                                   highway.src->label + "_to_" +
-                                                  highway.dest->label + ".txt");
+                                                  highway.dest->label + ".tsv");
   evaluator.savePerFamilyLikelihoodDiff(out);
   evaluator.removeHighway();
   return ll;
@@ -242,7 +245,7 @@ void Highways::getCandidateHighways(
       regraft = regraft->parent;
     }
     auto &evaluator = optimizer.getEvaluator();
-    auto params = evaluator.getModelParameters();
+    auto params = optimizer.getModelParameters();
     auto minTransRate = params[0].getParameter(highway.src->node_index, 2);
     for (auto &param : params) {
       minTransRate = std::min(minTransRate, param.getParameter(highway.src->node_index, 2));
@@ -331,7 +334,7 @@ void Highways::filterCandidateHighways(
                     << std::endl;
       continue;
     }
-    auto params = evaluator.getModelParameters();
+    auto params = optimizer.getModelParameters();
     auto minTransRate = params[0].getParameter(highway.src->node_index, 2);
     for (auto &param : params) {
       minTransRate = std::min(minTransRate, param.getParameter(highway.src->node_index, 2));
