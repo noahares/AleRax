@@ -476,15 +476,15 @@ void AleOptimizer::reconcile(unsigned int samples) {
     Scenario::saveTransferHeader(transferOs);
     transferFiles.push_back(familyTransferFile);
     for (unsigned int sample = 0; sample < samples; ++sample) {
-      auto geneTreeXMLPath =
-          FileSystem::joinPaths(allRecDir, localFamilies[i].name + "_sample_" +
-                                               std::to_string(sample) + ".xml");
+      // auto geneTreeXMLPath =
+      //     FileSystem::joinPaths(allRecDir, localFamilies[i].name + "_sample_" +
+      //                                          std::to_string(sample) + ".xml");
       auto &scenario = *scenarios[sample];
       scenario.saveReconciliation(geneTreesOs,
                                   ReconciliationFormat::NewickEvents);
       scenario.saveReconciliation(geneTreesAleOs, ReconciliationFormat::ALE);
-      scenario.saveReconciliation(geneTreeXMLPath,
-                                  ReconciliationFormat::RecPhyloXML, false);
+      // scenario.saveReconciliation(geneTreeXMLPath,
+      //                             ReconciliationFormat::RecPhyloXML, false);
       scenario.saveEventsCounts(eventCountsOs, sample);
       scenario.savePerSpeciesEventsCounts(perSpeciesEventCountsOs, sample);
       scenario.saveTransfers(transferOs, sample);
