@@ -110,7 +110,7 @@ template <class REAL> void UndatedDLMultiModel<REAL>::allocateMemory() {
  *  Free memory allocated to the CLVs
  */
 template <class REAL> void UndatedDLMultiModel<REAL>::deallocateMemory() {
-  _dlclvs = std::vector<DLCLV>();
+  std::vector<DLCLV>().swap(_dlclvs);
 }
 
 /**
@@ -206,7 +206,7 @@ void UndatedDLMultiModel<REAL>::recomputeSpeciesProbabilities() {
   std::fill(_uE.begin(), _uE.end(), REAL());
   // iterate several times to resolve _uE probas with
   // fixed point optimization
-  unsigned int maxIt = 4;
+  unsigned int maxIt = this->_info.fixedPointIterations;
   for (unsigned int it = 0; it < maxIt; ++it) {
     for (unsigned int c = 0; c < _gammaCatNumber; ++c) {
       // postorder species tree traversal is granted
@@ -237,7 +237,11 @@ void UndatedDLMultiModel<REAL>::recomputeSpeciesProbabilities() {
         temp = _uE[ec] * _uE[ec] * _PD[ec];
         scale(temp);
         proba += temp;
-        assert(proba < REAL(1.000001));
+        // check proba
+        if (proba > REAL(1.0)) {
+          assert(proba < REAL(1.000001));
+          proba = REAL(1.0);
+        }
         _uE[ec] = proba;
       }
     }
@@ -311,7 +315,7 @@ bool UndatedDLMultiModel<REAL>::computeProbability(
     // - S event on a terminal species branch (only for compatible genes and
     // species)
     if (isSpeciesLeaf && this->_geneToSpecies[cid] == e) {
-      temp = REAL(_PS[ec]);
+      temp = REAL(_PS[ec] * (1.0 - this->_fm[e])); // S and observed scenario
       scale(temp);
       proba += temp;
       if (recCell && proba > maxProba) {
@@ -352,8 +356,10 @@ bool UndatedDLMultiModel<REAL>::computeProbability(
         return true;
       }
     }
-    // - D event
-    temp = _dlclvs[cidLeft][ec] * _dlclvs[cidRight][ec] * (_PD[ec] * freq);
+    // - D event (times 2: either copy can found either subclade, as the S
+    // term counts both orientations of the split)
+    temp =
+        _dlclvs[cidLeft][ec] * _dlclvs[cidRight][ec] * (2.0 * _PD[ec] * freq);
     scale(temp);
     proba += temp;
     if (recCell && proba > maxProba) {

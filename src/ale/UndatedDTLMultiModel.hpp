@@ -196,7 +196,7 @@ template <class REAL> void UndatedDTLMultiModel<REAL>::allocateMemory() {
  *  Free memory allocated to the CLVs
  */
 template <class REAL> void UndatedDTLMultiModel<REAL>::deallocateMemory() {
-  _dtlclvs = std::vector<DTLCLV>();
+  std::vector<DTLCLV>().swap(_dtlclvs);
 }
 
 /**
@@ -209,7 +209,7 @@ template <class REAL> void UndatedDTLMultiModel<REAL>::updateCLV(CID cid) {
   std::fill(tq.begin(), tq.end(), REAL());
   // iterate several times to resolve the DL and TL terms with
   // fixed point optimization: not needed if we don't model TL
-  unsigned int maxIt = this->_info.noTL ? 1 : 4;
+  unsigned int maxIt = this->_info.noTL ? 1 : this->_info.fixedPointIterations;
   for (unsigned int it = 0; it < maxIt; ++it) {
     bool ok;
     for (unsigned int c = 0; c < _gammaCatNumber; ++c) {
@@ -377,7 +377,7 @@ void UndatedDTLMultiModel<REAL>::recomputeSpeciesProbabilities() {
   std::fill(_tE.begin(), _tE.end(), REAL());
   // iterate several times to resolve _uE and _tE probas with
   // fixed point optimization
-  unsigned int maxIt = 4;
+  unsigned int maxIt = this->_info.fixedPointIterations;
   for (unsigned int it = 0; it < maxIt; ++it) {
     for (unsigned int c = 0; c < _gammaCatNumber; ++c) {
       REAL extinctionSum = REAL();
@@ -421,7 +421,11 @@ void UndatedDTLMultiModel<REAL>::recomputeSpeciesProbabilities() {
           scale(temp);
           proba += temp;
         }
-        assert(proba < REAL(1.000001));
+        // check proba
+        if (proba > REAL(1.0)) {
+          assert(proba < REAL(1.000001));
+          proba = REAL(1.0);
+        }
         extinctionSum += proba;
         _uE[ec] = proba;
       }
@@ -540,7 +544,7 @@ bool UndatedDTLMultiModel<REAL>::computeProbability(
     // - S event on a terminal species branch (only for compatible genes and
     // species)
     if (isSpeciesLeaf && this->_geneToSpecies[cid] == e) {
-      temp = REAL(_PS[ec]);
+      temp = REAL(_PS[ec] * (1.0 - this->_fm[e])); // S and observed scenario
       scale(temp);
       proba += temp;
       if (recCell && proba > maxProba) {
@@ -583,9 +587,10 @@ bool UndatedDTLMultiModel<REAL>::computeProbability(
         return true;
       }
     }
-    // - D event
+    // - D event (times 2: either copy can found either subclade, as the S
+    // and T terms count both orientations of the split)
     temp = _dtlclvs[cidLeft]._uq[ec] * _dtlclvs[cidRight]._uq[ec] *
-           (_PD[ec] * freq);
+           (2.0 * _PD[ec] * freq);
     scale(temp);
     proba += temp;
     if (recCell && proba > maxProba) {
