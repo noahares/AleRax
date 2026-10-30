@@ -235,7 +235,7 @@ template <class REAL> double MultiModel<REAL>::computeLogLikelihood() {
   // normalize by the number of categories
   res /= static_cast<double>(getGammaCatNumber());
   scale(res);
-  auto ll = getLog(res);
+  auto ll = getCheckedLog(res);
   // remember the computed LL for this species tree
   this->_llCache[hash] = ll;
   if (this->_memorySavings) {
