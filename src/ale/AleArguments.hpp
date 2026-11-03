@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IO/ArgumentsHelper.hpp"
+#include <IO/ArgumentsHelper.hpp>
 
 /**
  *  Parses and stores the program arguments
@@ -64,6 +64,7 @@ public:
   std::string fractionMissingFile;
   CCPRooting ccpRooting;
   OriginationStrategy originationStrategy;
+  unsigned int fixedPointIterations;
   bool memorySavings;
   double d;
   double l;

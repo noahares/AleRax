@@ -25,6 +25,13 @@ public:
                const Parameters &startingRates, bool optimizeRates,
                bool optimizeVerbose, const std::string &outputDir);
 
+  // forbid copy and move
+  AleOptimizer(const AleOptimizer &) = delete;
+  AleOptimizer &operator=(const AleOptimizer &) = delete;
+  AleOptimizer(AleOptimizer &&) = delete;
+  AleOptimizer &operator=(AleOptimizer &&) = delete;
+  ~AleOptimizer() = default;
+
   /**
    *  Species tree search functions
    */
@@ -90,9 +97,8 @@ public:
    *  Functions to handle checkpoints
    */
   void saveCheckpoint() { _state.serialize(getCheckpointDir(_outputDir)); };
-  bool checkpointExists() const { return checkpointExists(_outputDir); }
-  static bool checkpointExists(const std::string &outputDir) {
-    return FileSystem::dirExists(getCheckpointDir(outputDir));
+  bool checkpointExists() const {
+    return FileSystem::dirExists(getCheckpointDir(_outputDir));
   }
   static std::string getCheckpointDir(const std::string &outputDir) {
     return FileSystem::joinPaths(outputDir, "checkpoint");
