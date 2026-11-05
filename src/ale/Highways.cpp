@@ -393,7 +393,8 @@ void Highways::filterCandidateHighways(
     } else {
       Logger::timed << "  Rejecting (noImprov) the candidate: ";
     }
-    Logger::info << "llDiff=" << llDiff << ", proba=" << highway.proba
+    Logger::info << highway.src->label << "->" << highway.dest->label
+                 << "llDiff=" << llDiff << ", proba=" << highway.proba
                  << std::endl;
   }
   // remove all the temporarily added highways from the recmodel
